@@ -48,11 +48,11 @@ class balance(MOF):
 
         # refprop data of the gas in the tank
         PropCO2 = self.gas.calc_fluidProp_pT(self.gas_P, self.gas_T)
-        h_in_CO2 = self.gas.calc_fluidProp_pT(self.gas_P, self.T_in).h # J / kg_CO2
-        h_out_CO2 = PropCO2.h # J / kg_CO2
+        h_in_CO2 = self.gas.calc_fluidProp_pT(self.gas_P, self.T_in).h  * self.molar_mass # J / mol_CO2
+        h_out_CO2 = PropCO2.h  * self.molar_mass # J / mol_CO2
 
         # energy flow from the CO2 stream
-        en_flow = (self.m_in * h_in_CO2 - self.m_out * h_out_CO2) * self.molar_mass
+        en_flow = self.m_in * h_in_CO2 - self.m_out * h_out_CO2
 
         # heat transfer between sorbent and gas
         self.Htrans = self.h_CO2 * self.surfaceA * (self.mof_T - self.gas_T)
@@ -146,7 +146,7 @@ class balance(MOF):
 
     # plot the data, temperature and the others are distinguished 
     def make_gragh(self,data,legend):
-        self.fig = plt.figure()
+        self.fig = plt.figure(figsize=(15,5))
         ax_T = self.fig.add_subplot(1,2,1)
         ax = self.fig.add_subplot(1,2,2)
 
@@ -161,13 +161,14 @@ class balance(MOF):
                 ax.plot(self.t, data[i], label = legend[i])
                 ax.set_xlabel(' t second')
                 ax.legend()
+        plt.savefig('./Fig/results')
         plt.show()
         return 0
 
 
-def test():
+def main():
     System = balance()
-    ans = System.solver()
+    System.solver()
 
 if __name__ == '__main__':
-    test()
+    main()

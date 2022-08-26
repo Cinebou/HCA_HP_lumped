@@ -24,13 +24,12 @@ class MOF():
         self.name = name
         self.gas = VLEFluid('CO2')
         self.R = 8.314462618 # J/K/mol, gas constant
-        self.molar_mass = self.gas.get_molar_mass() / 1000  # kg_CO2 / mol, 4.40098e-05
+        self.molar_mass = self.gas.get_molar_mass()  # kg_CO2 / mol
 
         # amount of MIL101 in the tank
         self.MOF_mass = 0.15 # kg
 
         # adsorption speed coefficient in pseudo second order model
-        # this model is for chemisorption basically, I don't know why the author uses this model, it should be refined because this is the most important part in this system
         self.K2 = 4.26    # kg/mol/sec
 
         # adsorption speed coefficient in LDF model
@@ -39,15 +38,12 @@ class MOF():
         # the volume of the tank for the flow of CO2 space
         self.Volume = 0.005 # m3
 
-        # heat capacity, cp_gas should be refined by refprop
-        #self.cp_gas = 36.84   # J/mol/K
-
         # heat capacity of the MOF, which was in the manuscript of Joule paper.
         self.cp_mof = 700.0  # J/kg/K, 
         # ??? Liu, S., et al. J Therm Anal Calorim 129, 509–514 (2017). https://doi.org/10.1007/s10973-017-6168-9
 
         # input flow of CO2 into the tank
-        self.m_out = 0.01 # mol/sec
+        self.m_out = 0.4 # mol/sec
 
         # heat transfer coefficient of CO2, 
         self.h_CO2 = 1000.0 # W/m2/K, Mei Yang, PLoS One. 2016; 11(7): e0159602.
@@ -110,7 +106,7 @@ class MOF():
         # set pressure (constant)
         self.gas_P = 2500000.0
         # simulation time
-        self.simulation_time = 50  # sec
+        self.simulation_time = 500  # sec
 
         # inlet temperature of HTF
         self.T_HTF_in = 283.15
