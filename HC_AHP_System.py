@@ -49,10 +49,10 @@ class MOF():
         self.h_CO2 = 1000.0 # W/m2/K, Mei Yang, PLoS One. 2016; 11(7): e0159602.
 
         # heat transfer coefficient of water
-        self.h_water = 5000.0 # W/m2/K
+        self.h_water = 600.0 # W/m2/K
 
         # surface of the MOF tube
-        self.surfaceA = 0.1 # m2
+        self.surfaceA = 0.04 # m2
 
         # HTF mass flow
         self.HTF_flow = 5e-6 # m3/s = 5ml/sec
@@ -106,7 +106,7 @@ class MOF():
         # set pressure (constant)
         self.gas_P = 2500000.0
         # simulation time
-        self.simulation_time = 500  # sec
+        self.simulation_time = 1000  # sec
 
         # inlet temperature of HTF
         self.T_HTF_in = 303.15
@@ -177,8 +177,9 @@ class MOF():
         if p > 0:
             return p
         else:
-            #print('pressure over saturation point')
-            return self.gas.calc_VLE_T(303).p_v
+            """ above critical point, calculated in param_set.py """
+            P = -30874525.840160873 + 444031.88866659196 * T + -2208.9087997569713 * T**2 + 3.821325298211822 * T**3
+            return P
 
 
     # calculate the mass of the gas in the tank from the density obtained in REFPROP
@@ -195,7 +196,7 @@ class MOF():
 
     # calculate the heat from adsorption amount
     def dHadsdm(self):
-        dH = 21
+        dH = 20 # kJ/mol
         return dH * 1000 # J/mol
 
 
@@ -209,8 +210,6 @@ class MOF():
         NTU = 1/C_min_HTF/R_overall
 
         epsilon = 2/(1 + C_rel + sqrt(1+C_rel**2)*(1+exp(-NTU*sqrt(1+C_rel**2)))/(1-exp(-NTU*sqrt(1+C_rel**2))))
-        epsilon = 0.5
-        #print("efficiency of the heat exchanger of HTF is {}".format(epsilon))
         return epsilon * C_min_HTF
     
 

@@ -8,10 +8,27 @@ from pprint import pprint
 def main():
     #isotherm_example()
     #relaxation_curve()
-    #plt.show()
-    test_refprop()
+    
+    #test_refprop()
+    sat_curve()
 
+# saturation vapor-liquid curve of the CO2
+def sat_curve():
+    gas = VLEFluid('CO2')
+    p_sat_list = []
+    temp_list = np.linspace(220, 303, 200)
+    print(temp_list)
+    for temp in temp_list:
+        p_sat = gas.calc_VLE_T(temp).p_v
+        p_sat_list.append(p_sat)
 
+    fig_sat = plt.figure()
+    ax = fig_sat.add_subplot(111)
+    ax.plot(temp_list, p_sat_list)
+    ax.set_xlabel('temperature K')
+    ax.set_ylabel('pressure Pa')
+    plt.savefig('./Fig/satureation_pressure.png')
+    plt.show()
 
 # calculate isotherm 
 def isotherm_example():
@@ -72,8 +89,6 @@ def test_refprop():
     print("cp of the gas  : ", gas.calc_VLE_liquid_T(T).cp)
     print("volume of the gas : ", gas.calc_fluidProp_pT(P,T).vol)
     return 0
-
-
 
 if __name__ == "__main__": 
     main()
