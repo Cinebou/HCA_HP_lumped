@@ -43,7 +43,7 @@ class MOF():
         # ??? Liu, S., et al. J Therm Anal Calorim 129, 509–514 (2017). https://doi.org/10.1007/s10973-017-6168-9
 
         # input flow of CO2 into the tank
-        self.m_out = 0.4 # mol/sec
+        self.m_out = 6.6e-4 / self.molar_mass # mol/sec = kg/s / (kg/mol)
 
         # heat transfer coefficient of CO2, 
         self.h_CO2 = 1000.0 # W/m2/K, Mei Yang, PLoS One. 2016; 11(7): e0159602.
@@ -52,7 +52,7 @@ class MOF():
         self.h_water = 5000.0 # W/m2/K
 
         # surface of the MOF tube
-        self.surfaceA = 0.2 # m2
+        self.surfaceA = 0.1 # m2
 
         # HTF mass flow
         self.HTF_flow = 5e-6 # m3/s = 5ml/sec
@@ -65,7 +65,7 @@ class MOF():
 
         # heat resistance of the wall of the tube
         # thickness of the tube / heat conductance coefficient of the tube / surface area
-        self.R_wall_HTF = 0.001 / 0.94 / ((self.surfaceA_HTF + self.surfaceA)/2)  
+        self.R_wall_HTF = 0.005 / 386 / ((self.surfaceA_HTF + self.surfaceA)/2)  
 
         # set variables in the equation
         self.__set_var()
@@ -102,16 +102,16 @@ class MOF():
         # initial pressure
         self.gas_P_init = 600000.0
         # initial temperature
-        self.gas_T = 283.15
+        self.gas_T = 303.15
         # set pressure (constant)
         self.gas_P = 2500000.0
         # simulation time
         self.simulation_time = 500  # sec
 
         # inlet temperature of HTF
-        self.T_HTF_in = 283.15
+        self.T_HTF_in = 303.15
         # input temperature of CO2 gas
-        self.T_in = 283.15  # K
+        self.T_in = 303.15  # K
 
         # output temperature of HTF is same as inlet
         self.T_HTF_out = self.T_HTF_in
@@ -159,11 +159,8 @@ class MOF():
 
 
     " pseudo second order model"
-    # adsorption speed defined by pseudo-second-order model
-    # (Hui Su et al., RCS Adv., 2020, 10, 2198)
-    # Qt = k2*Qe^2/(1 + k2*Qe*t) * t
-    # t = Qt / (k2*Qe*(Qe - Qt))
-    # dQt/dt = k2*Qe^2 / (1 + k2*Qe*t)^2 = k2 * (Qe - Qt)^2
+    # adsorption speed defined by pseudo-second-order model (Hui Su et al., RCS Adv., 2020, 10, 2198)
+    # Qt = k2*Qe^2/(1 + k2*Qe*t) * t,  t = Qt / (k2*Qe*(Qe - Qt)),  dQt/dt = k2*Qe^2 / (1 + k2*Qe*t)^2 = k2 * (Qe - Qt)^2
     def ads_speed_second(self):
         # equilibrium amount
         Qe = self.eq_loading(self.gas_P, self.gas_T)
@@ -188,7 +185,7 @@ class MOF():
     def calc_mass_gas(self):
         v_gas = self.gas.calc_fluidProp_pT(self.gas_P, self.gas_T).vol #m3/kg
         m_gas = self.Volume / v_gas
-        return m_gas # kg
+        return m_gas * self.molar_mass # mol = m3/kg * kg/mol
 
     # calculate the heat capacity of sorbent as a sum of MOF and adsorbate
     def calc_heat_Cap_sor(self):
@@ -198,20 +195,22 @@ class MOF():
 
     # calculate the heat from adsorption amount
     def dHadsdm(self):
-        dH = 19
-        return 19 * 1000 # J/mol
+        dH = 21
+        return dH * 1000 # J/mol
 
 
     # the efficiency of the heat exchanger, which changes by increasing heat capacity of sorbent, loadings
+    # The number of transfer unit of heat exchanger between sorbent and HTF
+    # https://jp.mathworks.com/help/physmod/hydro/ref/entuheattransfer.html#:~:text=NTU%20is%20the%20number%20of,or%20finned%2C%20heat%20transfer%20surfaces.
     def calc_epsilon_C_heat_exchanger(self):
-        # The number of transfer unit of heat exchanger between sorbent and HTF
-        # https://jp.mathworks.com/help/physmod/hydro/ref/entuheattransfer.html#:~:text=NTU%20is%20the%20number%20of,or%20finned%2C%20heat%20transfer%20surfaces.
         C_min_HTF = min(self.cp_sor, self.rhoCp_HTF*self.HTF_flow)
         C_rel = min(self.cp_sor, self.rhoCp_HTF*self.HTF_flow) / max(self.cp_sor, self.rhoCp_HTF*self.HTF_flow)
         R_overall = 1/(self.surfaceA * self.h_CO2) + self.R_wall_HTF + 1/(self.surfaceA_HTF * self.h_water)
         NTU = 1/C_min_HTF/R_overall
 
         epsilon = 2/(1 + C_rel + sqrt(1+C_rel**2)*(1+exp(-NTU*sqrt(1+C_rel**2)))/(1-exp(-NTU*sqrt(1+C_rel**2))))
+        epsilon = 0.5
+        #print("efficiency of the heat exchanger of HTF is {}".format(epsilon))
         return epsilon * C_min_HTF
     
 

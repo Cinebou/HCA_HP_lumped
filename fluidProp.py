@@ -98,4 +98,4 @@ class VLEFluid:
 
     # search molar mass of the fluid
     def get_molar_mass(self):
-        return 1/fl.getInfo(self.fluid)[0]/1000
+        return fl.getInfo(self.fluid)[0]  # kg/mol

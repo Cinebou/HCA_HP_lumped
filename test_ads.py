@@ -62,9 +62,10 @@ def m(var, t, tank):
 def test_refprop():
     gas = VLEFluid('CO2')
     T = 283.15
-    P = 300000
-    h = gas.calc_fluidProp_pT(P, T).h
-    print("enthalpy  : ",h)
+    P = 2500000
+    h = gas.calc_fluidProp_pT(P, T).h 
+    print("enthalpy  J/kg : ",h)
+    print("enthalpy  J/mol: ",h* gas.get_molar_mass())
 
     print('molar mass of CO2', gas.get_molar_mass())
 
