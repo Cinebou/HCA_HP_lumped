@@ -1,4 +1,3 @@
-from fluidProp import VLEFluid
 from scipy.integrate import odeint
 import matplotlib.pyplot as plt
 import numpy as np
@@ -45,33 +44,6 @@ class balance(MOF):
         log_output.log_mass_msg(self.m_in, self.m_ads, self.m_out)
         return self.dm_loading
 
-    """
-    # energy balance of the gas in the tank
-    def en_balance_gas(self):
-        # enthalpy of the CO2 flow
-        h_in_CO2 = self.gas.calc_fluidProp_pT(self.gas_P, self.T_in).h  * self.molar_mass # J / mol_CO2
-        # refprop data of the gas in the tank
-        PropCO2 = self.gas.calc_fluidProp_pT(self.gas_P, self.gas_T)
-        h_out_CO2 = PropCO2.h  * self.molar_mass # J / mol_CO2
-
-        # energy flow from the CO2 stream
-        en_flow = self.m_in * (h_in_CO2 - h_out_CO2)
-
-        # heat transfer between sorbent and gas
-        Htrans = self.h_CO2 * self.surfaceA * (self.mof_T - self.gas_T)
-
-        # expansion heat due to the adsorption
-        mRT = - self.m_ads * self.gas_P * PropCO2.vol * self.molar_mass
-
-        # temperature development of the gas
-        cp_gas = PropCO2.cp * self.molar_mass
-        dTgasdt = (en_flow + Htrans + mRT) / (self.m_in*cp_gas)
-
-        # Logger
-        log_output.log_h_gas_msg(dTgasdt*self.m_in*cp_gas, en_flow, Htrans, mRT)
-        log_output.log_any_msg('{},{},{}'.format(h_in_CO2, h_out_CO2, self.gas_T ))
-        return dTgasdt
-    """
 
     # energy balance of the adsorbent
     def en_balance_sor(self):
