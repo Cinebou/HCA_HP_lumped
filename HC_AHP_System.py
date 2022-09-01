@@ -100,11 +100,11 @@ class MOF():
     # define initial conditions, equilibrium
     def __IC(self):
         # initial pressure
-        self.gas_P_init = 600000.0
+        self.gas_P_init = 300000.0
         # initial temperature
         self.gas_T = 303.15
         # set pressure (constant)
-        self.gas_P = 2500000.0
+        self.gas_P = 3000000.0
         # simulation time
         self.simulation_time = 1000  # sec
 
@@ -196,7 +196,7 @@ class MOF():
 
     # calculate the heat from adsorption amount
     def dHadsdm(self):
-        dH = 20 # kJ/mol
+        dH = 15 # kJ/mol
         return dH * 1000 # J/mol
 
 

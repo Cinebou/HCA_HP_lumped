@@ -1,5 +1,5 @@
 from fluidProp import VLEFluid
-from scipy.integrate import odeint
+from scipy.integrate import odeint,cumtrapz
 import matplotlib.pyplot as plt
 import numpy as np
 from HC_AHP_System import MOF
@@ -124,10 +124,11 @@ class balance(MOF):
         self.mof_T_list   = sol[:,1]
 
         # calc variables
-        T_HTF_out_list  = self.find_output_variables()
+        self.T_HTF_out_list  = self.find_output_variables()
+        Total_obtained_H = self.out_heat_HTF()
 
         # plot graph
-        plot_data = [self.loading_list,  self.mof_T_list,T_HTF_out_list]
+        plot_data = [self.loading_list,  self.mof_T_list, self.T_HTF_out_list]
         legends = ['loading','temperature of sorbent','temperature of HTF out']
         self.make_gragh(plot_data, legends)
         return 0
@@ -138,12 +139,32 @@ class balance(MOF):
         T_HTF_list = []
         for i in range(len(self.t)):
             self.loading = self.loading_list[i]
-            #self.gas_T   = self.gas_T_list[i]
             self.mof_T   = self.mof_T_list[i]
             self.update_variables()
-
             T_HTF_list.append(self.T_HTF_out)
-        return T_HTF_list
+        return np.array(T_HTF_list)
+
+    
+    # calculate the amount of heat that HTF obtain
+    def out_heat_HTF(self):
+        dQdt = self.HTF_flow * self.rhoCp_HTF * (self.T_HTF_out_list - self.T_HTF_in) / 1000 # kJ
+        tot_Q = cumtrapz(dQdt, self.t, initial = 0)
+
+        dQdt_trans = self.h_CO2 * self.surfaceA * (self.mof_T_list - self.T_in) /1000
+        tot_H_gas = cumtrapz(dQdt_trans, self.t, initial=0)
+
+        tot_H_ads = self.MOF_mass*(self.loading_list[-1] - self.loading_list[0]) * self.dHadsdm() /1000 # kJ
+        
+        print('total output heat at time     : ',self.simulation_time,' is   ', tot_Q[-1], 'kJ')
+        print('total adsorption heat at time : ',self.simulation_time,' is   ', tot_H_ads, 'kJ')
+        print('total heat transfer between adsorbate and sorbent        is   ',tot_H_gas[-1], 'kJ')
+        print('transfer ratio :', tot_Q[-1]/ tot_H_ads)
+        
+        plt.plot(self.t, tot_Q)
+        plt.xlabel('t sec')
+        plt.ylabel('accumurative heat kJ')
+        plt.savefig('./Fig/accumurative_heat.png')
+        return tot_Q[-1]
 
 
     # plot the data, temperature and the others are distinguished 
@@ -156,11 +177,13 @@ class balance(MOF):
         for i in range(len(data)):
             if 'temperature' in legend[i]:
                 ax_T.plot(self.t, data[i], label = legend[i])
-                ax_T.set_xlabel(' t second')
+                ax_T.set_xlabel(' t sec')
+                ax_T.set_ylabel(' T K')
                 ax_T.legend()
             else:
                 ax.plot(self.t, data[i], label = legend[i])
-                ax.set_xlabel(' t second')
+                ax.set_xlabel(' t sec')
+                ax.set_ylabel(' M mmol/g')
                 ax.legend()
         plt.savefig('./Fig/results')
         plt.show()
