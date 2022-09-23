@@ -105,14 +105,14 @@ class MOF():
 
     # define initial conditions, equilibrium
     def __IC(self):
-        # initial pressure
-        self.gas_P_init = 300000.0
-        # set pressure (constant)
-        self.gas_P = 4000000.0
-        # simulation time
+        # initial pressure (before compressor works)
+        self.gas_P_init = 300000.0 # Pa
+        # set pressure (constant, after compressor works)
+        self.gas_P = 4000000.0 # Pa
+        # simulation time (duration)
         self.simulation_time = 1200  # sec
 
-        # inlet temperature of HTF
+        # inlet temperature of HTF, water
         self.T_HTF_in = 283.15
         # input temperature of CO2 gas
         self.T_in = 290.15  # K
