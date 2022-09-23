@@ -11,11 +11,6 @@ if not path.exists('./Fig'):
     mkdir('./Fig')
 
 
-"""
-the change of mass in the tank is not considered because of the problem in the ODE system
-actually it should change with changing the temperature of gas
-"""
-
 class balance(MOF):
     def __init__(self):
         super().__init__('MIL-101')
@@ -29,12 +24,6 @@ class balance(MOF):
         # the mass of the outflow gas, record m_out for the calucaltion in energy balance
         self.m_in = self.m_out + self.m_ads
 
-        # calcualte mas of the gas from the temeprature and pressure
-        self.m_gas = self.calc_mass_gas()
-        # heat capacity of the sorbent
-        self.cp_sor = self.calc_heat_Cap_sor()
-        # efficiency of the Shell and tube model
-        self.epsilonC = self.calc_epsilon_C_heat_exchanger()
         #energy balance of the HTF from the efficiency of exchange
         self.T_HTF_out = self.T_HTF_in + self.epsilonC / self.rhoCp_HTF / self.HTF_flow * (self.mof_T - self.T_HTF_in)
 
@@ -45,7 +34,7 @@ class balance(MOF):
         log_output.log_mass_msg(self.m_in, self.m_ads, self.m_out)
         return self.dm_loading
 
-    """
+    
     # energy balance of the gas in the tank
     def en_balance_gas(self):
         # enthalpy of the CO2 flow
@@ -65,18 +54,18 @@ class balance(MOF):
 
         # temperature development of the gas
         cp_gas = PropCO2.cp * self.molar_mass
-        dTgasdt = (en_flow + Htrans + mRT) / (self.m_in*cp_gas)
+        dTgasdt = (en_flow + Htrans + mRT) / (self.m_gas*cp_gas)
 
         # Logger
         log_output.log_h_gas_msg(dTgasdt*self.m_in*cp_gas, en_flow, Htrans, mRT)
         log_output.log_any_msg('{},{},{}'.format(h_in_CO2, h_out_CO2, self.gas_T ))
         return dTgasdt
-    """
+    
 
     # energy balance of the adsorbent
     def en_balance_sor(self):
         # heat transfer between sorbent and gas
-        Htrans = self.h_CO2 * self.surfaceA * (self.T_in - self.mof_T)
+        Htrans = self.h_CO2 * self.surfaceA * (self.gas_T - self.mof_T)
         # adsorption heat
         Hads = self.m_ads * self.dHadsdm()
         # heat passed to the HTF
@@ -94,19 +83,19 @@ class balance(MOF):
     def equations(self, var, t):
         # variables
         self.loading   = var[0]
-        #self.gas_T     = var[1]
         self.mof_T     = var[1]
+        self.gas_T     = var[2]
 
         # update the system
         self.update_variables()
         
         # differential
         dmsordt = self.mass_balance_sor()
-        #dTgasdt = self.en_balance_gas()
         dTsordt = self.en_balance_sor()
+        dTgasdt = self.en_balance_gas()
         
         print('current time is  : ', t)
-        return [dmsordt, dTsordt]
+        return [dmsordt, dTsordt, dTgasdt]
 
 
     # solver of ODE system
@@ -114,25 +103,24 @@ class balance(MOF):
         # time step
         self.t = np.linspace(0,self.simulation_time,self.simulation_time * 10)
         # initial value in the ODE
-        var0 = [self.loading_init, self.mof_T_init]
+        var0 = [self.loading_init, self.mof_T_init, self.gas_T_init]
         # solver
         sol = odeint(self.equations, var0, self.t,atol=1.e-9,rtol=1.e-9)
         
         # answer
         self.loading_list = sol[:,0]
-        #self.gas_T_list   = sol[:,1]
         self.mof_T_list   = sol[:,1]
+        self.gas_T_list   = sol[:,2]
 
         # calc variables
         self.T_HTF_out_list  = self.find_output_variables()
         Total_obtained_H = self.out_heat_HTF()
 
         # plot graph
-        plot_data = [self.loading_list,  self.mof_T_list, self.T_HTF_out_list]
-        legends = ['loading','temperature of sorbent','temperature of HTF out']
+        plot_data = [self.loading_list,  self.mof_T_list, self.T_HTF_out_list, self.gas_T_list]
+        legends = ['loading','temperature of sorbent','temperature of HTF out', 'temperature of gas in the tank']
         self.make_gragh(plot_data, legends)
         return 0
-
     
     # re-calclate non-ODEsystem variables from the results
     def find_output_variables(self):
@@ -150,7 +138,7 @@ class balance(MOF):
         dQdt = self.HTF_flow * self.rhoCp_HTF * (self.T_HTF_out_list - self.T_HTF_in) / 1000 # kJ
         tot_Q = cumtrapz(dQdt, self.t, initial = 0)
 
-        dQdt_trans = self.h_CO2 * self.surfaceA * (self.mof_T_list - self.T_in) /1000
+        dQdt_trans = self.h_CO2 * self.surfaceA * (self.mof_T_list - self.gas_T) /1000
         tot_H_gas = cumtrapz(dQdt_trans, self.t, initial=0)
 
         tot_H_ads = self.MOF_mass*(self.loading_list[-1] - self.loading_list[0]) * self.dHadsdm() /1000 # kJ
@@ -158,7 +146,6 @@ class balance(MOF):
         print('total output heat at time       : ',self.simulation_time,' is   ', tot_Q[-1], 'kJ')
         print('total adsorption heat at time   : ',self.simulation_time,' is   ', tot_H_ads, 'kJ')
         print('total heat transfer CO2 at time : ',self.simulation_time,' is   ', tot_H_gas[-1], 'kJ')
-        print('transfer ratio :', tot_Q[-1]/ tot_H_ads)
         
         plt.plot(self.t, tot_Q)
         plt.xlabel('t sec')
@@ -180,10 +167,12 @@ class balance(MOF):
                 ax_T.set_xlabel(' t sec')
                 ax_T.set_ylabel(' T K')
                 ax_T.legend()
+                ax_T.grid(axis='both')
             else:
                 ax.plot(self.t, data[i], label = legend[i])
                 ax.set_xlabel(' t sec')
                 ax.set_ylabel(' M mmol/g')
+                ax.grid(axis='both')
                 ax.legend()
         plt.savefig('./Fig/results')
         plt.show()

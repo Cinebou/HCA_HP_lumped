@@ -5,6 +5,7 @@ Author Hibiki Kimura,
 """
 from fluidProp import VLEFluid
 from math import sqrt, exp
+import log_output
 
 # unit
 # energy, J
@@ -66,12 +67,12 @@ class MOF():
 
         # set variables in the equation
         self.__set_var()
-        # declare dependent variables in the equation
-        self.__set_dependant_var()
         # freudlich constant for the isotherm 
         self.__freudlich()
         # set initial condition
         self.__IC()
+        # declare dependent variables in the equation
+        self.__set_dependant_var()
         
 
     def __set_var(self):
@@ -92,23 +93,32 @@ class MOF():
         self.T_HTF_out = None
         # mass of the gas in the tank
         self.m_gas = None
+
+        # calcualte mas of the gas from the temeprature and pressure
+        self.m_gas = self.calc_mass_gas()
+        # heat capacity of the sorbent
+        self.cp_sor = self.calc_heat_Cap_sor()
+        log_output.log_any_msg('cp_sor == {}'.format(self.cp_sor))
+        # efficiency of the Shell and tube model
+        self.epsilonC = self.calc_epsilon_C_heat_exchanger()
         
 
     # define initial conditions, equilibrium
     def __IC(self):
         # initial pressure
         self.gas_P_init = 300000.0
-        # initial temperature
-        self.gas_T = 303.15
         # set pressure (constant)
-        self.gas_P = 3000000.0
+        self.gas_P = 4000000.0
         # simulation time
-        self.simulation_time = 1000  # sec
+        self.simulation_time = 1200  # sec
 
         # inlet temperature of HTF
-        self.T_HTF_in = 303.15
+        self.T_HTF_in = 283.15
         # input temperature of CO2 gas
-        self.T_in = 303.15  # K
+        self.T_in = 290.15  # K
+
+        # initial temperature of gas in the tank
+        self.gas_T = self.T_in
 
         # output temperature of HTF is same as inlet
         self.T_HTF_out = self.T_HTF_in
@@ -116,10 +126,6 @@ class MOF():
         self.mof_T = self.gas_T # K
         # initial loading get equilibrium
         self.loading = self.eq_loading(self.gas_P_init, self.mof_T)
-        # initial amount of gas in the tank
-        self.m_gas = self.calc_mass_gas()
-
-        self.cp_sor = self.calc_heat_Cap_sor()
 
         #initial value of the variables for odeint input
         self.loading_init   = self.loading
@@ -150,14 +156,9 @@ class MOF():
 
     # saturation pressure corresponding to the temperature, over critical pressure is assumed to be constant now
     def sat_pressure(self, T):
-        f = self.gas.calc_VLE_T(T)
-        p = f.p_v
-        if p > 0:
-            return p
-        else:
-            """ above critical point, calculated in param_set.py """
-            P = -30874525.840160873 + 444031.88866659196 * T + -2208.9087997569713 * T**2 + 3.821325298211822 * T**3
-            return P
+        """ above critical point, calculated in param_set.py """
+        P = -30874525.840160873 + 444031.88866659196 * T + -2208.9087997569713 * T**2 + 3.821325298211822 * T**3
+        return P
 
 
     # calculate the mass of the gas in the tank from the density obtained in REFPROP
@@ -168,7 +169,8 @@ class MOF():
 
     # calculate the heat capacity of sorbent as a sum of MOF and adsorbate
     def calc_heat_Cap_sor(self):
-        cp_liq = self.gas.calc_VLE_liquid_T(self.mof_T).cp * self.molar_mass
+        #cp_liq = self.gas.calc_VLE_liquid_T(self.mof_T).cp * self.molar_mass
+        cp_liq = 8.6979 * self.molar_mass * 1000
         cp_sor = self.cp_mof * self.MOF_mass + self.loading * self.MOF_mass * cp_liq
         return cp_sor # J/K
 
@@ -182,12 +184,18 @@ class MOF():
     # The number of transfer unit of heat exchanger between sorbent and HTF
     # https://jp.mathworks.com/help/physmod/hydro/ref/entuheattransfer.html#:~:text=NTU%20is%20the%20number%20of,or%20finned%2C%20heat%20transfer%20surfaces.
     def calc_epsilon_C_heat_exchanger(self):
-        C_min_HTF = min(self.cp_sor, self.rhoCp_HTF*self.HTF_flow)
-        C_rel = min(self.cp_sor, self.rhoCp_HTF*self.HTF_flow) / max(self.cp_sor, self.rhoCp_HTF*self.HTF_flow)
         R_overall = 1/(self.surfaceA * self.h_CO2) + self.R_wall_HTF + 1/(self.surfaceA_HTF * self.h_water)
-        NTU = 1/C_min_HTF/R_overall
+        NTU = 1/(self.rhoCp_HTF*self.HTF_flow)/R_overall
 
-        epsilon = 2/(1 + C_rel + sqrt(1+C_rel**2)*(1+exp(-NTU*sqrt(1+C_rel**2)))/(1-exp(-NTU*sqrt(1+C_rel**2))))
-        return epsilon * C_min_HTF
+        epsilon = 1 - exp(-NTU)
+        log_output.log_any_msg(epsilon)
+        return epsilon * self.rhoCp_HTF*self.HTF_flow
     
+
+def test_cp_sor(mof_):
+    mof_.calc_heat_Cap_sor()
+
+if __name__=='__main__':
+    mof = MOF('MIL-101')
+    test_cp_sor(mof)
 
