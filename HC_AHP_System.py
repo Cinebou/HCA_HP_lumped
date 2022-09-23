@@ -29,14 +29,11 @@ class MOF():
         # amount of MIL101 in the tank
         self.MOF_mass = 0.15 # kg
 
-        # adsorption speed coefficient in pseudo second order model
-        self.K2 = 4.26    # kg/mol/sec
-
         # adsorption speed coefficient in LDF model
         self.K1_LDF = 0.01  # sec
 
         # the volume of the tank for the flow of CO2 space
-        self.Volume = 0.005 # m3
+        self.Volume = 0.064 # m3
 
         # heat capacity of the MOF, which was in the manuscript of Joule paper.
         self.cp_mof = 700.0  # J/kg/K, 
@@ -125,15 +122,9 @@ class MOF():
         self.cp_sor = self.calc_heat_Cap_sor()
 
         #initial value of the variables for odeint input
-        self.m_gas_init     = self.m_gas
         self.loading_init   = self.loading
         self.gas_T_init     = self.gas_T
         self.mof_T_init     = self.mof_T
-        self.T_HTF_out_init = self.T_HTF_out
-        
-        # previous value
-        # mass of CO2 gas in the tank at previous cycle
-        self.m_gas_previous = self.calc_mass_gas()
 
 
     # freudlich coefficient for the isotherm modeling
@@ -153,22 +144,9 @@ class MOF():
     " linear driving force model"
     def ads_speed_LDF(self):
         # equilibrium amount
-        Qe = self.eq_loading(self.gas_P, self.gas_T)
+        Qe = self.eq_loading(self.gas_P, self.mof_T)
         dQtdt = self.K1_LDF * (Qe - self.loading)
         return dQtdt # mol/kg/sec
-
-
-    " pseudo second order model"
-    # adsorption speed defined by pseudo-second-order model (Hui Su et al., RCS Adv., 2020, 10, 2198)
-    # Qt = k2*Qe^2/(1 + k2*Qe*t) * t,  t = Qt / (k2*Qe*(Qe - Qt)),  dQt/dt = k2*Qe^2 / (1 + k2*Qe*t)^2 = k2 * (Qe - Qt)^2
-    def ads_speed_second(self):
-        # equilibrium amount
-        Qe = self.eq_loading(self.gas_P, self.gas_T)
-        # loading speed
-        dQtdt = self.K2 * (Qe - self.loading)**2
-        # return the mass adsorbed in the tank
-        return dQtdt  # mol/kg/sec
-
 
     # saturation pressure corresponding to the temperature, over critical pressure is assumed to be constant now
     def sat_pressure(self, T):
@@ -190,13 +168,13 @@ class MOF():
 
     # calculate the heat capacity of sorbent as a sum of MOF and adsorbate
     def calc_heat_Cap_sor(self):
-        cp_liq = self.gas.calc_VLE_liquid_T(self.gas_T).cp * self.molar_mass
+        cp_liq = self.gas.calc_VLE_liquid_T(self.mof_T).cp * self.molar_mass
         cp_sor = self.cp_mof * self.MOF_mass + self.loading * self.MOF_mass * cp_liq
         return cp_sor # J/K
 
     # calculate the heat from adsorption amount
     def dHadsdm(self):
-        dH = 15 # kJ/mol
+        dH = 22 # kJ/mol
         return dH * 1000 # J/mol
 
 

@@ -155,9 +155,9 @@ class balance(MOF):
 
         tot_H_ads = self.MOF_mass*(self.loading_list[-1] - self.loading_list[0]) * self.dHadsdm() /1000 # kJ
         
-        print('total output heat at time     : ',self.simulation_time,' is   ', tot_Q[-1], 'kJ')
-        print('total adsorption heat at time : ',self.simulation_time,' is   ', tot_H_ads, 'kJ')
-        print('total heat transfer between adsorbate and sorbent        is   ',tot_H_gas[-1], 'kJ')
+        print('total output heat at time       : ',self.simulation_time,' is   ', tot_Q[-1], 'kJ')
+        print('total adsorption heat at time   : ',self.simulation_time,' is   ', tot_H_ads, 'kJ')
+        print('total heat transfer CO2 at time : ',self.simulation_time,' is   ', tot_H_gas[-1], 'kJ')
         print('transfer ratio :', tot_Q[-1]/ tot_H_ads)
         
         plt.plot(self.t, tot_Q)
