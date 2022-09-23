@@ -20,3 +20,4 @@ Initial condition of the simulation can be modified in '__IC()' of 'HC_AHP_Syste
 3. Heat of adsorption should be defferent with increasing adsorption amount.
 4. Adsorption speed should be dependent on temperature and pressure. It can be divided into surface diffusion and knudsen diffusion and internal particle diffusion.
 5. Heat transfer coefficient can be estimated from Reynold's number and Prank number. 
+6. The mass of gas in the tank should be a function of temperature adn pressure.

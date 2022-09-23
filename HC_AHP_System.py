@@ -113,9 +113,9 @@ class MOF():
         self.simulation_time = 1200  # sec
 
         # inlet temperature of HTF, water
-        self.T_HTF_in = 283.15
+        self.T_HTF_in = 303.15
         # input temperature of CO2 gas
-        self.T_in = 290.15  # K
+        self.T_in = 303.15  # K
 
         # initial temperature of gas in the tank
         self.gas_T = self.T_in
