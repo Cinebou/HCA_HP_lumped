@@ -11,9 +11,16 @@ if not path.exists('./Fig'):
     mkdir('./Fig')
 
 
+def main():
+    mof_type = 'MIL-101'
+    #mof_type = 'Uio-66'
+    System = balance(mof_type)
+    System.solver()
+
+
 class balance(MOF):
-    def __init__(self):
-        super().__init__('MIL-101')
+    def __init__(self,name):
+        super().__init__(name)
 
     # update system with each iteration
     def update_variables(self):
@@ -23,7 +30,6 @@ class balance(MOF):
         self.m_ads = self.dm_loading * self.MOF_mass
         # the mass of the outflow gas, record m_out for the calucaltion in energy balance
         self.m_in = self.m_out + self.m_ads
-
         #energy balance of the HTF from the efficiency of exchange
         self.T_HTF_out = self.T_HTF_in + self.epsilonC / self.rhoCp_HTF / self.HTF_flow * (self.mof_T - self.T_HTF_in)
 
@@ -147,16 +153,18 @@ class balance(MOF):
         print('total adsorption heat at time   : ',self.simulation_time,' is   ', tot_H_ads, 'kJ')
         print('total heat transfer CO2 at time : ',self.simulation_time,' is   ', tot_H_gas[-1], 'kJ')
         
+        plt.rcParams["font.size"] = 14
         plt.plot(self.t, tot_Q)
         plt.xlabel('t sec')
         plt.ylabel('accumurative heat kJ')
-        plt.savefig('./Fig/accumurative_heat.png')
+        plt.savefig('./Fig/'+self.name + '/accumurative_heat.png')
         return tot_Q[-1]
 
 
     # plot the data, temperature and the others are distinguished 
     def make_gragh(self,data,legend):
         self.fig = plt.figure(figsize=(15,5))
+        plt.rcParams["font.size"] = 14
         ax_T = self.fig.add_subplot(1,2,1)
         ax = self.fig.add_subplot(1,2,2)
 
@@ -174,14 +182,10 @@ class balance(MOF):
                 ax.set_ylabel(' M mmol/g')
                 ax.grid(axis='both')
                 ax.legend()
-        plt.savefig('./Fig/results')
+        plt.savefig('./Fig/'+ self.name + '/results')
         plt.show()
         return 0
 
-
-def main():
-    System = balance()
-    System.solver()
 
 if __name__ == '__main__':
     main()

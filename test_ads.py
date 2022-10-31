@@ -4,13 +4,25 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import odeint
 from pprint import pprint
+from math import exp, log 
+from HC_AHP_System import MOF
 
 def main():
+    cp_calc()
     #isotherm_example()
     #relaxation_curve()
-    
     #test_refprop()
-    sat_curve()
+    #sat_curve()
+    #DubininAstakhov()
+
+
+# calculation of heat capacity of mil101
+def cp_calc():
+    mof = MOF('MIL-101')
+    temp_line = np.linspace(200,400,200)
+    cp_line = [mof.heat_capacity_mof(t) for t in temp_line]
+    plt.plot(temp_line, cp_line)
+    plt.show()
 
 # saturation vapor-liquid curve of the CO2
 def sat_curve():
@@ -30,11 +42,39 @@ def sat_curve():
     plt.savefig('./Fig/satureation_pressure.png')
     plt.show()
 
+def DubininAstakhov():
+    gas = VLEFluid('CO2')
+    p_list = np.linspace(1, 1000000, 20)
+    
+    # DA parameters
+    qo = 1.08 * 1000/44 # mol(CO2)/kg(MOF)
+    E = 4400
+    n = 1.1
+    temp1 = 273.15
+    ad_amount1 = [qo*exp(-(Ad_pot(p, temp1)/E)**n) for p in p_list]
+    plt.plot(p_list,ad_amount1)
+
+    temp2 = 298.15
+    ad_amount2 = [qo*exp(-(Ad_pot(p, temp2)/E)**n) for p in p_list]
+    plt.plot(p_list,ad_amount2)
+
+    temp3 = 323.15
+    ad_amount3 = [qo*exp(-(Ad_pot(p, temp3)/E)**n) for p in p_list]
+    plt.plot(p_list,ad_amount3)
+    plt.show()
+
+def Ad_pot(pressure, temp):
+    gas = VLEFluid('CO2')
+    mof = MOF('MIL-101')
+    sat_p = mof.sat_pressure(temp)
+    A = mof.R * temp * log(sat_p / pressure)
+    return A
+
 # calculate isotherm 
 def isotherm_example():
-    test_tank = MOF("MIL101")
+    test_tank = MOF("MIL-101")
     T = 273.15
-    p_po = np.linspace(0,1,100)
+    p_po = np.linspace(0.1,1,100)
 
     amount = []
     for p in p_po:
@@ -46,6 +86,7 @@ def isotherm_example():
     ax_iso.plot(p_po * test_tank.sat_pressure(T)/100000, amount)
     ax_iso.set_xlabel('p bar')
     ax_iso.set_ylabel('M mol/kg')
+    plt.show()
     plt.savefig('./Fig/isotherm.jpg')
     
 
