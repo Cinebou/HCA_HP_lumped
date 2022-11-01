@@ -90,10 +90,22 @@ class VLEFluid:
     def calc_fluidProp_pT(self,p,T):
         """Calculated fluid properties
         """
-        VLE = fl.zs(["T", "p"],[T, p],["T",'p','v','h','cp','q'],self.fluid,Eh="default")
+        VLE = fl.zs(["T", "p"],[T, p],["T",'p','v','h','cp','s','q'],self.fluid,Eh="default")
         VLEFluid.h = VLE[3]
         VLEFluid.vol = VLE[2]
         VLEFluid.cp = VLE[4]
+        VLEFluid.s = VLE[5]
+        return VLEFluid
+
+    # the parameter of unsaturated vapor calculated from temperature and pressure
+    def calc_fluidProp_ps(self,p,s):
+        """Calculated fluid properties
+        """
+        VLE = fl.zs(["p", "s"],[p, s],["T",'p','v','h','cp','q'],self.fluid,Eh="default")
+        VLEFluid.h = VLE[3]
+        VLEFluid.vol = VLE[2]
+        VLEFluid.cp = VLE[4]
+        VLEFluid.T = VLE[0]
         return VLEFluid
 
     # search molar mass of the fluid

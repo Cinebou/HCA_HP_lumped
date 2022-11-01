@@ -29,32 +29,32 @@ class Log:
                 lg_m = logging.getLogger('mass_balance')
                 handler_m = logging.FileHandler(filename = "Log/log_mass.csv",mode = 'a')
                 handler_m.setFormatter(logging.Formatter("%(message)s"))
-                #lg_m.setLevel(logging.DEBUG) # log on
-                lg_m.setLevel(logging.WARN)   # log off
+                lg_m.setLevel(logging.DEBUG) # log on
+                #lg_m.setLevel(logging.WARN)   # log off
                 lg_m.addHandler(handler_m)
 
                 # Heat of gas
                 lg_h = logging.getLogger('heat_balance_gas')
                 handler_h = logging.FileHandler(filename = "Log/log_heat_gas.csv",mode = 'a')
                 handler_h.setFormatter(logging.Formatter("%(message)s"))
-                #lg_h.setLevel(logging.DEBUG) # log on
-                lg_h.setLevel(logging.WARN)   # log off
+                lg_h.setLevel(logging.DEBUG) # log on
+                #lg_h.setLevel(logging.WARN)   # log off
                 lg_h.addHandler(handler_h)
 
                 # Heat of sorbent
                 lg_hs = logging.getLogger('heat_balance_sor')
                 handler_hs = logging.FileHandler(filename = "Log/log_heat_sor.csv",mode = 'a')
                 handler_hs.setFormatter(logging.Formatter("%(message)s"))
-                #lg_hs.setLevel(logging.DEBUG) # log on
-                lg_hs.setLevel(logging.WARN)   # log off
+                lg_hs.setLevel(logging.DEBUG) # log on
+                #lg_hs.setLevel(logging.WARN)   # log off
                 lg_hs.addHandler(handler_hs)
 
                 # Any
                 lg_any = logging.getLogger('Any')
                 handler_any = logging.FileHandler(filename = "Log/log_any.csv",mode = 'a')
                 handler_any.setFormatter(logging.Formatter("%(message)s"))
-                #lg_any.setLevel(logging.DEBUG) # log on
-                lg_any.setLevel(logging.WARN)   # log off
+                lg_any.setLevel(logging.DEBUG) # log on
+                #lg_any.setLevel(logging.WARN)   # log off
                 lg_any.addHandler(handler_any)
 
                 """set the logger"""

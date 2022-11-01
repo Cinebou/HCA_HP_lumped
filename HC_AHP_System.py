@@ -69,7 +69,7 @@ class MOF():
         # set initial condition
         self.__IC()
         # declare dependent variables in the equation
-        self.__set_dependant_var()
+        self.set_dependant_var_IC()
         
 
     def __set_var(self):
@@ -80,53 +80,54 @@ class MOF():
         # temperature of the MOF
         self.mof_T = None
 
-    
-    def __set_dependant_var(self):
-        # calcualte mas of the gas from the temeprature and pressure
-        self.m_gas = self.calc_mass_gas()
-        # heat capacity of the sorbent
-        self.cp_sor = self.calc_heat_Cap_sor()
-        # efficiency of the Shell and tube model
-        self.epsilonC = self.calc_epsilon_C_heat_exchanger()
-        
 
     # define initial conditions, equilibrium
     def __IC(self):
         # initial pressure (before compressor works)
-        self.gas_P_init = 300000.0 # Pa
+        self.gas_P_init = 500000.0 # Pa
         # set pressure (constant, after compressor works)
-        self.gas_P = 4000000.0 # Pa
+        self.gas_P = 3000000.0 # Pa
         # simulation time (duration)
-        self.simulation_time = 1200  # sec
-
+        self.simulation_time = 600  # sec
+        # time diff
+        self.dt = 0.1 # sec, 1/dt should be integral
         # inlet temperature of HTF, water
         self.T_HTF_in = 303.15
-        # input temperature of CO2 gas
-        self.T_in = 303.15  # K
-
         # initial temperature of gas in the tank
-        self.gas_T = self.T_in
-
+        self.gas_T = 303.15
+    
+    def set_dependant_var_IC(self):
+        # temperature of the gas before compression
+        self.T_lower = self.gas_T
         # output temperature of HTF is same as inlet
         self.T_HTF_out = self.T_HTF_in
         # intial MOF temperature is same as gas
         self.mof_T = self.gas_T # K
+
         # initial loading get equilibrium
         self.loading = self.eq_loading(self.gas_P_init, self.mof_T)
-
+    
+        # calcualte mas of the gas from the temeprature and pressure
+        self.m_gas = self.calc_mass_gas()
+        # heat capacity of the sorbent
+        self.cp_sor = self.calc_heat_Cap_sor()
+        # efficiency of the Shell and tube model, it is a fixed value
+        self.epsilonC = self.calc_epsilon_C_heat_exchanger()
+        # input temperature of CO2 gas
+        self.T_in, h_after_comp = self.calc_gas_in(self.T_lower, self.gas_P_init, self.gas_P)  # K
+        # compressor work
+        h_before_comp = self.gas.calc_fluidProp_pT(self.gas_P_init, self.gas_T).h
+        self.h_comp = (h_after_comp - h_before_comp)* self.molar_mass # J/mol = J/kg * kg/mol
+        
         #initial value of the variables for odeint input
         self.loading_init   = self.loading
         self.gas_T_init     = self.gas_T
         self.mof_T_init     = self.mof_T
 
-
     # freudlich coefficient for the isotherm modeling
     def __adsorption_prop(self):
         self.qo_DA, self.E_DA, self.n_DA = self.sorbent_data.DA_isotherm # mol/kg
         self.heat_coeff, = self.sorbent_data.enthalpy
-
-    # the graph of the heat of adsorption
-    #def __heat_of_adsorption(self):
 
     # adsorption potential in Polyani adsorption theory
     def ad_pot(self, p, T):
@@ -138,7 +139,6 @@ class MOF():
         A = self.ad_pot(p,T)
         loading = self.qo_DA * exp(-(A/self.E_DA)**self.n_DA)
         return loading
-
 
     " linear driving force model"
     def ads_speed_LDF(self):
@@ -168,6 +168,7 @@ class MOF():
         cp_sor = cp_mof * self.MOF_mass + self.loading * self.MOF_mass * cp_liq
         return cp_sor # J/K
 
+    # heat capacity fitting equation from literature
     def heat_capacity_mof(self, temp):
         if self.name == 'MIL-101':
             c1, c2, c3, c4, c5, c6 = self.sorbent_data.heatCap[0]
@@ -177,7 +178,6 @@ class MOF():
         if self.name == 'Uio-66':
             cp = self.sorbent_data.heatCap
         return cp
-
 
 
     # calculate the heat from adsorption amount
@@ -192,16 +192,21 @@ class MOF():
     def calc_epsilon_C_heat_exchanger(self):
         R_overall = 1/(self.surfaceA * self.h_CO2) + self.R_wall_HTF + 1/(self.surfaceA_HTF * self.h_water)
         NTU = 1/(self.rhoCp_HTF*self.HTF_flow)/R_overall
-
         epsilon = 1 - exp(-NTU)
-        #log_output.log_any_msg(epsilon)
         return epsilon * self.rhoCp_HTF*self.HTF_flow
-    
 
-def test_cp_sor(mof_):
-    mof_.calc_heat_Cap_sor()
+    
+    # decide the temperature of the gas just after the addiabatic compression
+    def calc_gas_in(self, Tl, pl, ph):
+        # entropy of the gas before the compression
+        sl = self.gas.calc_fluidProp_pT(pl, Tl).s
+        # addiabatic compression means entropy doesn't change
+        gas_after_comp = self.gas.calc_fluidProp_ps(ph, sl)
+        Th_in = gas_after_comp.T
+        h_in = gas_after_comp.h
+        return Th_in, h_in
+
 
 if __name__=='__main__':
     mof = MOF('MIL-101')
-    test_cp_sor(mof)
 
