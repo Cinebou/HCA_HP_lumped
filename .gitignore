@@ -2,3 +2,4 @@ Log/*.csv
 Fig/*
 __pycache__/*
 parameter_fix/*
+Results/
