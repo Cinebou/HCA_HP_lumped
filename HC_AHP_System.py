@@ -5,7 +5,6 @@ Author Hibiki Kimura,
 """
 from fluidProp import VLEFluid
 from math import log, sqrt, exp
-import log_output
 from mof_prop import ad_db
 # unit
 # energy, J
@@ -83,22 +82,23 @@ class MOF():
 
     # define initial conditions, equilibrium
     def __IC(self):
-        # initial pressure (before compressor works)
-        self.gas_P_init = 500000.0 # Pa
-        # set pressure (constant, after compressor works)
-        self.gas_P = 3000000.0 # Pa
         # simulation time (duration)
-        self.simulation_time = 600  # sec
+        self.simulation_time = 500  # sec
+        # initial temperature of gas in the tank
+        self.gas_T = 293.15
+        # initial pressure (before compressor works)
+        self.gas_P_init = 800000. # Pa
+        # set pressure (constant, after compressor works)
+        self.gas_P = 2020833.3333333335# Pa
         # time diff
         self.dt = 0.1 # sec, 1/dt should be integral
-        # inlet temperature of HTF, water
-        self.T_HTF_in = 303.15
-        # initial temperature of gas in the tank
-        self.gas_T = 303.15
+
     
     def set_dependant_var_IC(self):
         # temperature of the gas before compression
         self.T_lower = self.gas_T
+        # inlet temperature of HTF, water, is same as initial temperature of the system
+        self.T_HTF_in = self.gas_T
         # output temperature of HTF is same as inlet
         self.T_HTF_out = self.T_HTF_in
         # intial MOF temperature is same as gas

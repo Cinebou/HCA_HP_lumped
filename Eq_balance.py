@@ -114,7 +114,7 @@ class balance(MOF):
         # initial value in the ODE
         var0 = [self.loading_init, self.mof_T_init, self.gas_T_init]
         # solver
-        sol = odeint(self.equations, var0, self.t,atol=1.e-9,rtol=1.e-9)
+        sol = odeint(self.equations, var0, self.t,atol=5.e-6,rtol=5.e-6)
         
         # answer
         self.loading_list = sol[:,0]

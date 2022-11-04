@@ -15,8 +15,6 @@ def draw_time_line():
 
     plt.xlabel('SCP  W')
     plt.ylabel('COP a.u.')
-    plt.xlim(0,500)
-    plt.ylim(0,4)
     plt.savefig('./Fig/pMap.png')
     plt.show()
 

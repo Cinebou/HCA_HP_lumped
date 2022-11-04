@@ -1,6 +1,5 @@
 import pandas as pd
 from time import time
-import matplotlib.pyplot as plt
 import numpy as np
 from HC_AHP_System import MOF
 from Eq_balance import balance 
@@ -18,17 +17,17 @@ def main():
 # solve the system for several cases
 def multi_solver(name):
     # length of the simulation time
-    simulation_time_list = np.linspace(500, 1000) # sec
+    simulation_time_list = np.linspace(50, 1550,num=16) # sec
     # lower side temperature
-    Tl_list = np.linspace(283.15, 308.15)
+    Tl_list = np.linspace(278.15, 313.15, num=11)
     # higher side pressure
-    Ph_list = np.linspace(15e5, 40e5, 4)
+    Ph_list = np.linspace(21e5, 51e5, num=11)
     # lower side temperature
-    Pl_list = np.linspace(1e5, 10e5, 4)
+    Pl_list = np.linspace(1e5, 12e5, num=13)
 
     # set result format
-    df_index = pd.DataFrame(index=['simulation_time','gas_T','gas_P_init','gas_P','SCP','COP','totQ'],header=None).T
-    df_index.to_csv('./Results/multi_solver.csv')
+    df_index = pd.DataFrame(['simulation_time','gas_T','gas_P_init','gas_P','SCP','COP','totQ']).T
+    df_index.to_csv('./Results/multi_solver.csv', header=False, index=False)
 
     # calc for many cases one by one
     for t in simulation_time_list:
@@ -69,6 +68,7 @@ def one_solver(name,param_dict):
         'COP' : cop,
         'totQ': totQ
     }
+
     return res_dict
 
 

@@ -4,7 +4,6 @@ Created on Tue Nov 10 09:21:41 2020
 
 @author: gibelhaus
 """
-from pylab import *
 import Fluid_RP10_2 as fl
 
 class VLEFluid:
@@ -107,6 +106,24 @@ class VLEFluid:
         VLEFluid.cp = VLE[4]
         VLEFluid.T = VLE[0]
         return VLEFluid
+
+    # calculate the latent heat of fluid, at const temperature, below and after critical
+    def calc_fg_latent(self, T):
+        # below critical temperature
+        if T < 302:
+            prop_list = ["T",'p','h','q']
+            q = 0 #fluid quality is saturated liquid
+            VLE_liq = fl.zs(["T","q"],[T,q],prop_list,self.fluid,Eh="default")
+            q = 1 #fluid quality is saturated vapor
+            VLE_vap = fl.zs(["T","q"],[T,q],prop_list,self.fluid,Eh="default")
+            h_fg = VLE_vap[2] - VLE_liq[2]
+            return h_fg * self.get_molar_mass() # J/mol
+        
+        # above critical point
+        else:
+            R = 8.314462618 # J/K/mol, gas constant
+            h_fg = 2 * R * T
+            return h_fg # J/mol
 
     # search molar mass of the fluid
     def get_molar_mass(self):
