@@ -82,20 +82,20 @@ class Log:
 l = Log()
 
 """ output any message to "Log/log_mass.csv" file """
-def log_mass_msg(m_in, m_ads, m_out):
-        msg = '{},{},{}'.format( m_in,m_ads, m_out)
+def log_mass_msg(m_in, m_ads, m_out,t):
+        msg = '{},{},{},{}'.format( m_in,m_ads, m_out,t)
         l.log_set_m(msg)
         return 0
 
 """ output any message to "Log/log_heat_gas.csv" file """
-def log_h_gas_msg(mcpdTgasdt, en_flow, Htrans, mRT):
-        msg = '{},{},{},{}'.format(mcpdTgasdt, en_flow, Htrans, mRT)
+def log_h_gas_msg(mcpdTgasdt, en_flow, Htrans, mRT, t):
+        msg = '{},{},{},{},{}'.format(mcpdTgasdt, en_flow, Htrans, mRT,t)
         l.log_set_h_gas(msg)
         return 0
 
 """ output any message to "Log/log_heat_sor.csv" file """
-def log_h_sor_msg(dTdt, Htrans,Hads,  passHTF):
-        msg = '{},{},{},{}'.format(dTdt, Htrans, Hads, passHTF)
+def log_h_sor_msg(dTdt, Htrans,Hads,  passHTF,t):
+        msg = '{},{},{},{},{}'.format(dTdt, Htrans, Hads, passHTF,t)
         l.log_set_h_sor(msg)
         return 0
 

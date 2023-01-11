@@ -2,22 +2,78 @@ from HC_AHP_System import MOF
 from fluidProp import VLEFluid
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 from scipy.integrate import odeint
 from pprint import pprint
 from math import exp, log 
 from multiprocessing import Pool
-
+plt.rcParams["font.size"] = 24
+plt.rcParams["font.family"] = "Times New Roman"
 
 def main():
+    #mass_flow()
+    #heat_tot()
     #cp_calc()
-    isotherm_example()
+    #isotherm_example()
     #relaxation_curve()
     #test_refprop()
-    #sat_curve()
+    sat_curve()
     #DubininAstakhov()
     #entropy_example()
     #multi_process()
     #latent_heat()
+    #accum_heat_example()
+
+def mass_flow():
+    data_mass = pd.read_csv('./Log/log_mass.csv',names=["m_in", "m_ads","m_out", "time"])
+    plt.plot(data_mass["time"], data_mass["m_in"] ,label="m_in")
+    #plt.plot(data_mass["time"], data_mass["m_in"] / data_mass["m_out"] ,label="in out rratio")
+    plt.plot(data_mass["time"], data_mass["m_out"],label="m_out")
+    plt.xlabel("time [sec]")
+    plt.ylabel("$\dot m_{CO2}$ [mol/sec]")
+    plt.legend()
+    plt.show()
+
+def heat_tot():
+    test_tank = MOF("Uio-66",res_file='',start_time=0)
+    Ts = 21.6
+    Tf = 20.4
+    ps =  0.7802e06
+    pf =  1.935809090e06
+    p_po = np.linspace(0.001,1,100)
+    amount_s = []
+    amount_f = []
+    for p in p_po:
+        p_Pa_s = p * test_tank.sat_pressure(Ts + 273.15)
+        amount_s.append(test_tank.eq_loading(p_Pa_s, Ts + 273.15))
+        p_Pa_f = p * test_tank.sat_pressure(Tf + 273.15)
+        amount_f.append(test_tank.eq_loading(p_Pa_f, Tf + 273.15))
+
+    fig_iso = plt.figure(figsize=(7.0, 4.5))
+    ax_iso = fig_iso.add_subplot(1,1,1)
+    ax_iso.plot(p_po * test_tank.sat_pressure(Ts + 273.15)/1000000, amount_s, label = str(Ts) + ' ℃')
+    ax_iso.plot(p_po * test_tank.sat_pressure(Tf + 273.15)/1000000, amount_f, label = str(Tf) + ' ℃')
+    
+    
+    ax_iso.scatter(ps/1e06, test_tank.eq_loading(ps, Ts + 273.15), s=60)
+    ax_iso.scatter(pf/1e06, test_tank.eq_loading(pf, Tf + 273.15), s=60)
+    """
+    ps = 0.7802e06
+    ax_iso.scatter(ps/1e06, test_tank.eq_loading(ps, Ts + 273.15), s=60,label='0.8 MPa')
+    ps = 1.961e06
+    ax_iso.scatter(ps/1e06, test_tank.eq_loading(ps, Ts + 273.15), s=60,c='b')"""
+    dm = test_tank.eq_loading(pf, Tf + 273.15)-test_tank.eq_loading(ps, Ts + 273.15)
+    print(' dm = ',dm,' mol/kg')
+    print('H ads. = ', dm * 0.1349* 24.8994 * 1000, ' J')
+    ax_iso.set_xlabel('p MPa')
+    ax_iso.set_ylabel('M mol/kg')
+    ax_iso.set_xlim(0, 2.7)
+    ax_iso.set_ylim(0,9)
+    ax_iso.set_position([0.1,0.16, 0.85,0.8])
+    ax_iso.legend()
+    ax_iso.grid()
+    plt.savefig('./Fig/isotherm.jpg')
+    
 
 
 def latent_heat():
@@ -54,7 +110,13 @@ def cp_calc():
     mof = MOF('MIL-101')
     temp_line = np.linspace(200,400,200)
     cp_line = [mof.heat_capacity_mof(t) for t in temp_line]
+
+    print(mof.heat_capacity_mof(298.15))
     plt.plot(temp_line, cp_line)
+    #plt.xlim(240, 440)
+    #plt.ylim(200, 800)
+    plt.ylabel('Cp [J/kg/K]')
+    plt.xlabel('temperature [K]')
     plt.show()
 
 # saturation vapor-liquid curve of the CO2
@@ -105,27 +167,49 @@ def Ad_pot(pressure, temp):
 
 # calculate isotherm 
 def isotherm_example():
-    test_tank = MOF("MIL-101")
-    T = 323.15
-    p_po = np.linspace(0.1,1,100)
-
-    amount = []
+    test_tank = MOF("Uio-66",res_file='',start_time=0)
+    T = 303
+    p_po = np.linspace(0.001,0.5,100)
+    amount_a = []
     for p in p_po:
         p_Pa = p * test_tank.sat_pressure(T)
-        amount.append(test_tank.eq_loading(p_Pa, T))
+        amount_a.append(test_tank.eq_loading(p_Pa, T))
+
+    fig_iso = plt.figure(figsize=(9,6))
+    ax_iso = fig_iso.add_subplot(1,1,1)
+    ax_iso.plot(p_po * test_tank.sat_pressure(T)/1000000, amount_a, label='a')
+    ax_iso.set_xlabel('${p}$ MPa')
+    ax_iso.set_ylabel('${M}$ mmol/g')
+    ax_iso.set_xlim(0,3.2)
+    ax_iso.set_position([0.1,0.15,0.8,0.8])
+    ax_iso.grid()
+    plt.savefig('./Fig/isotherm.jpg')
+
+# calculate isotherm 
+def accum_heat_example():
+    test_tank = MOF("Uio-66",res_file='',start_time=0)
+    T = 303.15
+    p_po = np.linspace(0.001,0.5,100)
+    amount_a = []
+    for p in p_po:
+        p_Pa = p * test_tank.sat_pressure(T)
+        amount_a.append(test_tank.eq_loading(p_Pa, T))
 
     fig_iso = plt.figure()
     ax_iso = fig_iso.add_subplot(1,1,1)
-    ax_iso.plot(p_po * test_tank.sat_pressure(T)/100000, amount)
-    ax_iso.set_xlabel('p bar')
-    ax_iso.set_ylabel('M mol/kg')
-    plt.show()
-    plt.savefig('./Fig/isotherm.jpg')
-    
+    p = p_po * test_tank.sat_pressure(T)/1000000
+    h =  np.array(amount_a) * 24.8994
+    ax_iso.plot(p,h, label='a')
+    data = pd.DataFrame([p,h])
+    data.to_csv('./Results/accum_heat.csv')
+    ax_iso.set_xlabel('p MPa')
+    ax_iso.set_ylabel('M kJ/kg')
+    #plt.show()
+    plt.savefig('./Fig/accum_heat.jpg')
 
 # calculate reluxation curve
 def relaxation_curve():
-    test_tank = MOF("MIL101")
+    test_tank = MOF("MIL101",res_file='',start_time=0)
     init_P = test_tank.gas_P_init
 
     init_amount = test_tank.eq_loading(init_P, test_tank.gas_T)

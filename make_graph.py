@@ -8,10 +8,10 @@ def main():
     draw_time_line()
 
 def draw_time_line():
-    pMap = pd.read_csv('./Results/multi_solver.csv')
+    pMap = pd.read_csv('./Results/303_2_30.csv')
     print(pMap)
+    plt.rcParams["font.size"] = 17
     plt.scatter(pMap['SCP'],pMap['COP'], marker='o')
-    plt.rcParams["font.size"] = 14
 
     plt.xlabel('SCP  W')
     plt.ylabel('COP a.u.')
