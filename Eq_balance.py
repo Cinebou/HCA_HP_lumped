@@ -1,4 +1,4 @@
-from scipy.integrate import odeint,cumtrapz, solve_ivp
+from scipy.integrate import ode,cumtrapz, solve_ivp
 import matplotlib.pyplot as plt
 import numpy as np
 from HC_AHP_System import MOF
@@ -148,7 +148,7 @@ class balance(MOF):
         # initial value in the ODE
         var0 = [self.loading_init, self.mof_T_init, self.gas_T_init] + self.T_HTF_init
         # solver
-        sol = solve_ivp(self.equations, [0, self.simulation_time], var0 ,t_eval=self.t,method='LSODA',rtol=1e-3, atol=1e-06,dense_output=True)
+        sol = solve_ivp(self.equations, [0, self.simulation_time], var0 ,t_eval=self.t,method='LSODA',rtol=1e-3, atol=1e-06,max_step=self.max_time_step)
 
         # time 
         self.t = sol.t

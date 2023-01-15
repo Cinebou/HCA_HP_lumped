@@ -30,7 +30,7 @@ class MOF(DA_model):
         super().__init__()
 
         # discritization number in longtitudnal direction
-        self.n_discrete = 5
+        self.n_discrete = 20
 
         self.gas = VLEFluid('CO2')
         self.R = 8.314462618 # J/K/mol, gas constant
@@ -129,6 +129,10 @@ class MOF(DA_model):
         self.m_gas = self.calc_mass_gas()
         # heat capacity of the sorbent
         self.cp_sor = self.calc_heat_Cap_sor()
+
+        #　クーラン数0.8の設定、最大時間刻み
+        cfl = 0.8
+        self.max_time_step = cfl * (self.length_tube/self.n_discrete) / (self.HTF_flow/(self.d_tube**2*pi))
 
         #initial value of the variables for odeint input
         self.loading_init   = self.loading
