@@ -12,8 +12,8 @@ def main():
     #mof.v_ads_plot()
     #mof.isotherm_plot()
     #mof.Qst_plot()
-    #mof.isotherm_plot_195()
-    mof.sat_P_plot()
+    print(mof.current_h_ads(15,298.15))
+    
 
 
 class DA_model():
@@ -25,12 +25,13 @@ class DA_model():
         self.n = 1.42040287e+00
         self.E = 5.32025217e+03 # J/mol
         # thermal expansion
-        self.alpha =  2.97307623e-03
+        self.alpha = 2.97307623e-03
         # saturation over critical point coefficient
         self.k_over_crit = 5.92587884e+00
 
         self.co2_prop = VLEFluid('CO2')
         self.__coeff()
+
 
     def __coeff(self):
         # gas const
@@ -54,7 +55,7 @@ class DA_model():
 
         H_ads_list = [0]
         for i in range(1, len(p_line)):
-            dm_ads = self.isotherm_DA(p_line[i],T) - self.isotherm_DA(p_line[i-1],T)
+            dm_ads = self.eq_loading(p_line[i],T) - self.eq_loading(p_line[i-1],T)
             Qst = self.isosteric_heat((p_line[i]+p_line[i-1])/2, T)
             H_ads_list.append(H_ads_list[-1] + Qst*dm_ads)
         return np.array(p_line), np.array(H_ads_list)
@@ -68,11 +69,10 @@ class DA_model():
 
 
     # isotherm DA model
-    def isotherm_DA(self, p, T):
+    def eq_loading(self, p, T):
         sat_P = self.sat_pressure(T)
         theta = exp(-((self.R * T) / self.E * log(sat_P/p))**self.n)
         _, v_ads = self.vol_gas_adsobate(p, T)
-
         w = self.co/v_ads * theta * 1000/44 # mol / kg_MOF
         return w
 
@@ -88,7 +88,8 @@ class DA_model():
             ps = (T/self.T_crit)**self.k_over_crit * p_crit
             return ps
 
-        
+
+    # 飽和蒸気圧の温度微分  
     def TdlnPs_aT(self, T):
         if T >= self.T_crit:
             return self.k_over_crit
@@ -97,7 +98,9 @@ class DA_model():
             Ps_T = self.sat_pressure(T)
             Ps_T_dT = self.sat_pressure(T+dT)
             dPsdT = (Ps_T_dT - Ps_T) / dT
+            #print('飽和蒸気圧での傾き',dPsdT)
             return dPsdT * T / Ps_T
+
 
     # volume of gas and adsorbate
     def vol_gas_adsobate(self, p, T):
@@ -119,6 +122,34 @@ class DA_model():
         Qst = p * (v_gas - v_ads) * dlnP_dT  # J/kg
         return Qst * 0.001 * 44/1000 # kJ/mol
 
+    
+    def current_h_ads(self, loading, T):
+        p_line = np.linspace(3e4, self.sat_pressure(T)*0.98,15)
+        m_line = np.array([self.eq_loading(p,T) for p in p_line])
+        qst_line = np.array([self.isosteric_heat(p,T) for p in p_line])
+
+        # index of correspoding heat of adsorption
+        index = self.idx_of_the_nearest(m_line, loading)
+        return qst_line[index]
+
+
+    
+    #　吸着相の比熱、液体比熱近似すると臨界点で発散するよ
+    # Kazi Afzalur Rahman et al. / Procedia Engineering 56 ( 2013 ) 118 – 125
+    def specific_heat_Cap(self,p,T, loading):
+        loading = loading * 44/1000
+        # 被吸着率
+        _, v_ads = self.vol_gas_adsobate(p, T)
+        theta = loading * v_ads / self.co
+        #ガス相比熱
+        cp_gas = self.co2_prop.calc_fluidProp_pT(p,T).cp * 44/1000# J/mol/K
+        term2 = (self.alpha**2*(1-self.n)/self.n**2*self.E*T) * (log(1/theta))**(1/self.n-2) # J/mol/K
+        #気液変化の凝縮熱の項は圧力一定なのでなし
+        #term3 = -self.TdlnPs_aT(T) * self.R # J/mol/K
+        cp_ads = cp_gas + term2 
+        #print(cp_ads, '\t', term3)
+        return cp_ads # J/mol/K
+
 
     # plot accum heat
     def accum_plot(self):
@@ -137,9 +168,6 @@ class DA_model():
         v_ads = [self.v_boiling * exp(self.alpha * (T - self.T_boiling))*1e3 for T in T_line]# m3/kg
         ax.plot(T_line, v_ads,label='$v_\mathrm{ads}$')
 
-        T_line = np.linspace(195, self.T_crit, 50)
-        v_liq = [self.co2_prop.calc_VLE_liquid_T(T).v*1e3 for T in T_line] # m3/kg
-        ax.plot(T_line, v_liq,label='$v_\mathrm{liq}$')
         ax.legend()
         ax.set_ylim(0,2)
         ax.set_xlabel('$T$ [K]')
@@ -155,26 +183,26 @@ class DA_model():
         T = 288
         sat_P = self.sat_pressure(T)
         p_line = np.linspace(1e2, sat_P*0.99,100)
-        w_line = np.array([self.isotherm_DA(p,T) for p in p_line])
+        w_line = np.array([self.eq_loading(p,T) for p in p_line])
         ax.plot(p_line/1e6, w_line,label='288K',linewidth=4)
 
         T = 303
         sat_P = self.sat_pressure(T)
         p_line = np.linspace(1e2, sat_P*0.99,100)
-        w_line = np.array([self.isotherm_DA(p,T) for p in p_line])
+        w_line = np.array([self.eq_loading(p,T) for p in p_line])
         ax.plot(p_line/1e6, w_line,label='303K',linewidth=4)
 
         T = 313
         sat_P = self.sat_pressure(T)
         p_line = np.linspace(1e2, sat_P*0.99,100)
-        w_line = np.array([self.isotherm_DA(p,T) for p in p_line])
+        w_line = np.array([self.eq_loading(p,T) for p in p_line])
         ax.plot(p_line/1e6, w_line,label='313K',linewidth=4)
         ax.set_xlim(0,4.1)
         ax.set_ylim(0,12)
         ax.legend()
         ax.set_xlabel('$p$ [MPa]')
         ax.set_ylabel('$M$ [mmol/g]')
-        fig.savefig('./Fig/isotherm_DA.png')
+        fig.savefig('./Fig/eq_loading.png')
 
 
     # plot Qst
@@ -184,19 +212,19 @@ class DA_model():
         ax.set_position([0.14,0.14,0.8,0.8])
         T = 288
         p_line = np.linspace(3e4, self.sat_pressure(T)*0.98,60)
-        m_line = np.array([self.isotherm_DA(p,T) for p in p_line])
+        m_line = np.array([self.eq_loading(p,T) for p in p_line])
         qst_line = np.array([self.isosteric_heat(p,T) for p in p_line])
         ax.scatter(m_line, qst_line,label='288K',s=65)
 
         T = 303
         p_line = np.linspace(3e4, self.sat_pressure(T)*0.98,60)
-        m_line = np.array([self.isotherm_DA(p,T) for p in p_line])
+        m_line = np.array([self.eq_loading(p,T) for p in p_line])
         qst_line = np.array([self.isosteric_heat(p,T) for p in p_line])
         ax.scatter(m_line, qst_line,label='303K',s=65)
 
         T = 313
         p_line = np.linspace(3e4, self.sat_pressure(T)*0.98,60)
-        m_line = np.array([self.isotherm_DA(p,T) for p in p_line])
+        m_line = np.array([self.eq_loading(p,T) for p in p_line])
         qst_line = np.array([self.isosteric_heat(p,T) for p in p_line])
         ax.scatter(m_line, qst_line,label='313K',s=65)
         ax.set_ylim(0,32)
@@ -225,29 +253,6 @@ class DA_model():
         plt.plot(p_line,v_line[1])
         plt.show()
 
-
-    # plot Qst
-    def isotherm_plot_195(self):
-        belsorp = pd.read_csv('uio66_Sync_CO2-Port2.DAT',sep='\t',header=None)
-        p_belsorp = belsorp.iloc[:-1,0]
-        m_belorp = belsorp.iloc[:-1,1]/22.4
-        fig = plt.figure(figsize=(10,7.5))
-        ax = fig.add_subplot(111)
-        ax.set_position([0.14,0.14,0.8,0.8])
-        T = 195
-        sat_P = self.sat_pressure(T)
-        p_line = np.linspace(1e2, sat_P*0.99,100)
-        w_line = np.array([self.isotherm_DA(p,T) for p in p_line])
-        ax.plot(p_line/1000, w_line,label='DA model',linewidth=4)
-        ax.scatter(p_belsorp, m_belorp, label = 'exp',s=50,color = 'red')
-        ax.set_xlim(0,110)
-        ax.legend(loc='lower right')
-        ax.set_xlabel('$p$ [kPa]')
-        ax.set_ylabel('$M$ [mmol/g]')
-        ax.set_ylim(0, 17)
-        fig.savefig('./Fig/isotherm_DA_195.png')
-
-
     # plot Qst
     def sat_P_plot(self):
         fig = plt.figure(figsize=(10,7.5))
@@ -264,6 +269,10 @@ class DA_model():
         ax.legend(loc='lower right')
         ax.set_ylabel('$p$ [MPa]')
         ax.set_xlabel('$T$ [K]')
+        
+        T = 313
+        print('temp\t:\t',T)
+        print('pres\t:\t',self.sat_pressure(T))
         fig.savefig('./Fig/sat_P_approx.png')
     
 

@@ -6,7 +6,6 @@ from exp_data.data_index import index_data_ver3
 #from data_index import index_data, index_data_new
 from os import mkdir, path
 from math import ceil,sqrt
-from mof_prop import Uio_66
 from fluidProp import VLEFluid
 
 if not path.exists('./Results'):
@@ -15,22 +14,8 @@ if not path.exists('./Results'):
 plt.rcParams["font.size"] = 18
 plt.rcParams["font.family"] = "Times New Roman"
 plt.rcParams["figure.dpi"] = 320
-plt.rcParams["figure.dpi"] = 320
 
 def main():
-    # experiment A
-    # low pressure 0.3MPa -> 1.9 MPa
-    file_name = './2022-12-06/GL840_01_No2_2022-12-06_15-12-36.csv';start_sec=750; dir_name = 'A_low_pres'
-    #calc_exp(file_name,start_sec, dir_name)
-    # middle pressure 0.5MPa -> 1.9 MPa
-    file_name = './2022-12-06/GL840_01_No2_2022-12-06_10-02-01.csv'; start_sec=5360; dir_name = 'A_middle_pres'
-    #calc_exp(file_name,start_sec, dir_name)
-    # high pressure 0.8 MPa -> 1.9 MPa
-    file_name = './2022-12-06/GL840_01_No2_2022-12-06_15-12-36.csv'; start_sec=2500; dir_name = 'A_high_pres'
-    #calc_exp(file_name,start_sec, dir_name)
-
-    # middle pressure 0.5MPa -> 1.9 MPa
-    #file_name = './2022-12-06/GL840_01_No2_2022-12-06_10-02-01.csv'; start_sec=6360; dir_name = 'equilibrium_check'
     #calc_exp(file_name,start_sec, dir_name)
     res_file = './exp_data/res/GL840_01_No2_2022-12-01_17-18-16.csv'; start_sec=3100; exp_span = 450; dir_name = 'example'
     calc_exp(res_file,start_sec, dir_name)
@@ -41,13 +26,6 @@ def main():
 def calc_exp(file_name, start_sec, dir_name): 
     exp_span = 300
     res1 = ResData(file_name, start_sec, exp_span, dir_name)
-    res1.T_graph()
-    res1.P_graph()
-    res1.work_graph()
-    res1.graph_each("MF1-CO2 flow",'[kg/h]')
-    res1.graph_each('expected_h_ads', '[W]')# , ylim=[-300, 300])
-    res1.graph_each("MF2-Water1", '[l/min]', ylim=[0, 0.8])
-    res1.graph_each("MF3-Water2", '[l/min]')
     #plt.show()
     
 
@@ -72,7 +50,6 @@ class ResData():
         self.cp_mof = self.mass_adsorbent * 658.9 # J/K
         self.cp_HX = 350 # J/K
         self.cp_vessel = 3883 # J/K
-        self.uio66 = Uio_66()
 
 
         # rough start second of the experiment
@@ -92,14 +69,6 @@ class ResData():
         # experimental condition
         self.__exp_condition()
 
-        # result derectory
-        print(dir_name)
-        self.file_path = './Results/Fig/' + dir_name+'_'+self.f_name.replace('.csv',"").replace('.CSV',"").split('GL840_01_No').pop()
-        #if not path.exists('./Results/Fig/' + dir_name.split('/').pop(0)):
-            #mkdir('./Results/Fig/' + dir_name.split('/').pop(0))
-        if not path.exists(self.file_path):
-            mkdir(self.file_path)
-        print('\n\n\n')
 
 # thermocouple calibration, water calibrated at 2022/12/15, co2 at 2022/12/20
     def __data_calibrate(self):
@@ -127,7 +96,6 @@ class ResData():
         self.exp_data['T_vessel top'] = self.d_average(["T64-tank1 vessel top"])
 
         # average vessel temperature of all
-        vessel_temps = ["T52-tank1 vessel bottom","T56-tank1 vessel middle","T60-tank1 vessel upper","T64-tank1 vessel top"]
         self.exp_data["vessel"] = self.d_loc_time('T_vessel bottom',0,self.tf_all)*0.07128 \
                                          +self.d_loc_time('T_vessel upper',0,self.tf_all)* 0.32886 + self.d_loc_time('T_vessel top',0,self.tf_all)*0.59986
 
@@ -151,26 +119,11 @@ class ResData():
         self.exp_data['dT_co2_flow'] = self.d_loc_time("CO2 inlet",0,self.tf_all) - self.d_loc_time("CO2 outlet",0,self.tf_all)
         self.exp_data['$Q_{CO2}$'] = self.exp_data['dT_co2_flow'] * self.d_loc_time('MF1-CO2 flow',0,self.tf_all) * self.cp_CO2/3600 # W, cp_co2 = 1.0 kJ/kg/h
 
-        # mof heat cap, temperature difference by time
-        self.exp_data['Q_loss mof'] = self.diff_times('sorbent') * (self.cp_mof + self.cp_HX)
-        self.exp_data['Q_loss vessel'] = (self.diff_times("T_vessel bottom")*0.07128 +self.diff_times('T_vessel upper')* 0.32886 \
-                                          + self.diff_times('T_vessel top')*0.59986) * self.cp_vessel # J/sec
-        self.exp_data['Q_gas_change'] = self.diff_times("gas") * self.cp_CO2     # W = K/s * kg * J/K/kg
-
         """
         Whole tank vessel = 113.36 m3,
         bottom sphere = 8.03 e-5 m3, cylinder = 37.28 e-5 m3, flange = 68.00 e-5 m3
         ratio [bottom, cylinder, flange] = [0.07128, 0.32886, 0.59986]
         """
-
-        # expected heat of adsorption from heat balance including heat losses at gas, vessel, HX     
-        self.exp_data['expected_h_ads'] = self.exp_data['$Q_{water}$'] + self.exp_data['Q_loss mof'] + self.exp_data['Q_loss vessel']\
-                                         +self.exp_data['Q_gas_change'] - self.exp_data['$Q_{CO2}$']
-
-        # uncertainity analysis
-        self.uncertains()
-
-        
 
     # findout the starting point of the experiment
     def __start_and_finish(self):
@@ -217,130 +170,18 @@ class ResData():
         return d_ave
 
 
-    # diff time
-    def diff_times(self, data_name):
-        diff = np.diff(self.d_loc_time(data_name,0,self.tf_all))
-        return np.concatenate([[0,0], diff])
-
-        # combined standard uncertainity
-    def __combined_uncertain(self,m_dot, t1, t2, sigma_m, sigma_t1, sigma_t2):
-        m_variance = sigma_m**2 / self.exp_data[m_dot]**2
-        T_variance = (sigma_t1**2 + sigma_t2**2) / (self.exp_data[t1] - self.exp_data[t2])**2
-        combined_std = (m_variance + T_variance)**0.5
-        return combined_std
-
-
-    def uncertains(self):
-        # standard deviation of thermo couples, calibrated at 2022/12/15
-        self.u_T11 = 0.08089 # K
-        self.u_T12 = 0.06945 # K
-        self.u_T25 = 0.099259 # K
-        self.u_T26 = 0.09641  # K
-        # catalog accuracy of flow meter, assuming rectangle distribution
-        self.u_m_co2 = 1.2 /sqrt(3) # kg/h
-        self.u_m_water = 0.040 /sqrt(3) # l/min, 定格5 l/minの繰り返し精度0.8 % F.S. = 0.040 l/min, 30sec出力
-        # expansion coefficient for uncertainity to include 95 % of possibility
-        expansion_coeff = 2
-        self.exp_data['Q_CO2_uncertain'] = self.exp_data['$Q_{CO2}$'] *expansion_coeff* self.__combined_uncertain('MF1-CO2 flow','CO2 inlet', 'CO2 outlet',self.u_m_co2, self.u_T25, self.u_T26)
-        self.exp_data['Q_w_uncertain'] = self.exp_data['$Q_{water}$'] *expansion_coeff* self.__combined_uncertain('MF2-Water1','water inlet', 'water outlet',self.u_m_water, self.u_T11, self.u_T12)
-
-
-    # graph. work
-    def work_graph(self):
-        fig_work = plt.figure(figsize=(10.0, 6.0))
-        ax = fig_work.add_subplot(111)
-        ax.set_position([0.07,0.1,0.6,0.8])
-        d_names = ["Q_water_out",
-                   "dh_co2_flow",
-                   #'Q_loss vessel',
-                   #'Q_loss mof',
-                   #'Q_gas_change'
-                  ]
-        for name in d_names:
-            data = self.d_loc(name)
-            ax.plot(self.time_line, data, label=name)
-            #print(name, ' total  : ', sum(self.d_loc_time(name,self.start_t,self.finish_t)), ' J')
-
-        ax.set_xlabel('time [sec]')
-        ax.set_ylabel('ΔQ [W]')
-        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0)
-        ax.grid()
-        fig_work.savefig(self.file_path +  '/work.png')
-
-
-    # temperature in teh tank
-    def T_graph(self):
-        fig = plt.figure(figsize=(12.0, 6.0))
-        ax = fig.add_subplot(111)
-        ax.set_position([0.1,0.1,0.55,0.8])
-        d_names = [#"T2-compressor outlet",
-                   "T3-tank1 comp",
-                   "T4-tank1 expV",
-                   #"T7-WHX1 comp",
-                   #"T8-WHX1 expV",
-                   #"T11-tank1 water inlet",
-                   "T12-tank1 water outlet",
-                   #"T21-tank1 mof",
-                   #"T22-tank1 mof",
-                   #"T23-tank1 mof",
-                   "T_tank1_gas ave",
-                   #"T24-tank1 gas low",
-                   #"T29-tank1 gas high",
-                   'T-tank1 mof ave',
-                   #"T-room",
-                   "T-vessel ave",
-                   #'T_vessel CO2 inlet',
-                   #'T_vessel bottom',
-                   #'T_vessel middle',
-                   #'T_vessel upper',
-                   #"T_vessel top"
-                  ]
-        
-        for name in d_names:
-            data = self.d_loc(name)
-            ax.plot(self.time_line, data, label=name)
-
-        ax.set_xlabel('time [sec]')
-        ax.set_ylabel('temperature [℃]')
-        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0)
-        ax.grid()
-        fig.savefig(self.file_path + '/temp.png')
-
-
-    # Pressure in the tank
-    def P_graph(self):
-        fig = plt.figure(figsize=(12.0, 6.0))
-        ax = fig.add_subplot(111)
-        ax.set_position([0.1,0.1,0.8,0.8])
-        d_names = [#"PS1-compressor inlet",
-                   #"PS2-compressor outlet",
-                   "PS3-tank1 comp",
-                   "PS4-tank1 expV",
-                   #"PS7-WHX1 comp",
-                   #"PS8-WHX1 expV"
-                  ]
-        for name in d_names:
-            data = self.d_loc(name)
-            ax.plot(self.time_line, data, label=name)  
-        ax.set_xlabel('time [sec]')
-        ax.set_ylabel('pressure [MPa]')
-        ax.legend(bbox_to_anchor=(0.65, 0.22), loc='upper left', borderaxespad=0)
-        ax.grid()
-        fig.savefig(self.file_path + '/pressure.png')
-
-
     # calculate experimental condition
     def __exp_condition(self):
         self.p_init = self.d_loc_time("Inlet", self.start_t-10, self.start_t-5).mean()
         self.p_high = self.d_loc_time("Inlet", self.start_t+20, self.finish_t).mean()
         self.T_inlet_HTF = self.d_loc_time("T11-tank1 w inlet", self.start_t, self.finish_t).mean()
-        self.CO2_flow = self.d_loc_time("MF1-CO2 flow", self.start_t+100, self.finish_t).mean()
+        self.CO2_flow = self.d_loc_time("MF1-CO2 flow", self.start_t+30, self.finish_t).mean()
         self.water_flow = self.d_loc_time("MF2-Water1",  self.start_t, self.finish_t).mean()
-        self.T_init_mof = self.d_loc_time('sorbent', self.start_t-15, self.start_t-5).mean()
-        self.T_init_gas = self.d_loc_time("gas" , self.start_t-15, self.start_t-5).mean()
-        self.T_fin_tank = self.d_loc_time('sorbent', self.finish_t-15, self.finish_t).mean()
-        self.T_init_vessel = self.d_loc_time("vessel", self.start_t-15, self.start_t-5).mean()
-        self.T_fin_vessel = self.d_loc_time("vessel", self.finish_t-5, self.finish_t).mean()
+        self.T_init_mof = self.d_loc_time('sorbent', self.start_t-3, self.start_t-1).mean()
+        self.T_init_gas = self.d_loc_time("gas" , self.start_t-3, self.start_t-1).mean()
+        self.T_fin_tank = self.d_loc_time('sorbent', self.finish_t-3, self.finish_t).mean()
+        self.T_init_vessel = self.d_loc_time("vessel", self.start_t-3, self.start_t-1).mean()
+        self.T_fin_vessel = self.d_loc_time("vessel", self.finish_t-3, self.finish_t).mean()
         self.T_room = self.d_loc("T-room").mean()
         
         #self.print_condition()
@@ -360,50 +201,6 @@ class ResData():
         print('final temperature of the vessel  : ', self.T_fin_vessel, ' ℃')
         print("temperatrue of the room  : ", self.T_room, ' ℃')
    
-
-
-    # output each data
-    def graph_each(self, data_name, data_unit, ylim=[None,None]):
-        data = self.d_loc(data_name)
-        fig_ = plt.figure()
-        ax = fig_.add_subplot(111)
-        ax.plot(self.time_line, data)  
-        ax.set_xlabel('time [sec]')
-        ax.set_ylabel(data_name+'  '+ data_unit)
-        ax.set_position([0.15,0.15,0.8,0.8])
-        ax.grid()
-        ax.set_ylim(ylim[0], ylim[1])
-        fig_.savefig(self.file_path + '/' + data_name + '.png')
-
-
-    # remove noise, low pass filter
-    def low_pass(self, data):
-        fc = 1.0  # カットオフ周波数
-
-        N =  len(data); dt = 1.0  #number of samples; #sampling rate
-        t = np.arange(0, N*dt, dt); freq = np.linspace(0, 1.0/dt, N) # 時間軸 周波数軸
-        F = np.fft.fft(data)# 高速フーリエ変換（周波数信号に変換）
-        F = F/(N/2)  # 正規化 + 交流成分2倍
-        F[0] = F[0]/2
-        F2 = F.copy()  # 配列Fをコピー
-        F2[(freq > fc)] = 0  # ローパスフィル処理（カットオフ周波数を超える帯域の周波数信号を0にする）
-        f2 = np.fft.ifft(F2) # 高速逆フーリエ変換（時間信号に戻す）
-        f2 = np.real(f2*N) # 振幅を元のスケールに戻す
-        return np.append(0,f2)
-
-    # xxに対してsize個での移動平均を取る
-    def valid_convolve(self, xx, size):
-        b = np.ones(size)/size
-        xx_mean = np.convolve(xx, b, mode="same")
-        n_conv = ceil(size/2)
-        # 補正部分
-        xx_mean[0] *= size/n_conv
-        for i in range(1, n_conv):
-            xx_mean[i] *= size/(i+n_conv)
-            xx_mean[-i] *= size/(i + n_conv - (size % 2)) 
-	    # size%2は奇数偶数での違いに対応するため
-        return xx_mean
-
 
 if __name__ == '__main__':
     main()

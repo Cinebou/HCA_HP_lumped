@@ -17,12 +17,13 @@ def main():
     #isotherm_example()
     #relaxation_curve()
     #test_refprop()
-    sat_curve()
+    #sat_curve()
     #DubininAstakhov()
     #entropy_example()
     #multi_process()
     #latent_heat()
     #accum_heat_example()
+    cp_curve()
 
 def mass_flow():
     data_mass = pd.read_csv('./Log/log_mass.csv',names=["m_in", "m_ads","m_out", "time"])
@@ -136,6 +137,35 @@ def sat_curve():
     ax.set_ylabel('pressure Pa')
     plt.savefig('./Fig/satureation_pressure.png')
     plt.show()
+
+
+# saturation vapor-liquid curve of the CO2
+def cp_curve():
+    mof = MOF('Uio-66','',0)
+    cp_list = []
+    cp_ads_list = []
+    cp_ads_pre=[]
+    temp_list = np.linspace(283, 333, 200)
+    for temp in temp_list:
+        cp = mof.gas.calc_fluidProp_pT(3e6, temp).cp * 44/1000
+        cp_list.append(cp)
+        cp_ads = mof.specific_heat_Cap(3e6,temp, 5)
+        cp_ads_list.append(cp_ads)
+
+        cp__ = mof.gas.calc_fluidProp_pT(mof.sat_pressure(temp)+4e6,temp).cp * 44/1000
+        cp_ads_pre.append(cp__)
+
+    fig_sat = plt.figure()
+    ax = fig_sat.add_subplot(111)
+    ax.plot(temp_list, cp_list,label='gas')
+    ax.plot(temp_list,cp_ads_list,label='ads')
+    ax.plot(temp_list,cp_ads_pre,label='ads pre')
+    ax.set_xlabel('temperature K')
+    ax.set_ylabel('cp J/K/mol')
+    ax.legend()
+    plt.savefig('./Fig/cp.png')
+    #plt.show()
+
 
 def DubininAstakhov():
     gas = VLEFluid('CO2')
