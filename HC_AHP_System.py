@@ -8,6 +8,8 @@ from math import log, exp, pi
 from exp_data.exp_sumarize import ResData
 import matplotlib.pyplot as plt
 from DubininAstakov import DA_model
+import numpy as np
+
 
 # unit
 # energy, J
@@ -30,7 +32,7 @@ class MOF(DA_model):
         super().__init__()
 
         # discritization number in longtitudnal direction
-        self.n_discrete = 20
+        self.n_discrete = 10
 
         self.gas = VLEFluid('CO2')
         self.R = 8.314462618 # J/K/mol, gas constant
@@ -44,7 +46,13 @@ class MOF(DA_model):
         self.MOF_mass = 0.2608 # kg
 
         # adsorption speed coefficient in LDF model
-        self.K1_LDF = 0.09  # sec
+        self.K1_LDF = 0.07982275  # sec
+
+        # heat conduction of HX to longtitudenal direction
+        self.thickness_tube = 0.0003
+        self.d_tube = 0.004 - self.thickness_tube
+        crosssection = self.thickness_tube * (2*pi*self.d_tube)
+        self.a_conductance = 372 * crosssection # W*m/K
 
         # the volume of the tank for the flow of CO2 space
         self.Volume = 0.00368 # m3, calculated from Tanaka san sheet
@@ -52,10 +60,10 @@ class MOF(DA_model):
         # the area of inner surface area of the vessel fo the tank
         # for the calculation of heat loss
         self.A_vessel = 0.11463 # m2
-        self.k_water = 0.4
+        self.k_water = 0.41252353
     
         # heat transfer coefficient of CO2, 
-        self.h_CO2 = 30 # W/m2/K, Mei Yang, PLoS One. 2016; 11(7): e0159602.
+        self.h_CO2 = 62.69737115 # W/m2/K, Mei Yang, PLoS One. 2016; 11(7): e0159602.
 
         # surface of the MOF tube
         self.surfaceA = 0.33909 # m2, = num_fin(178) * 0.01905 m * 0.100 m
@@ -65,7 +73,6 @@ class MOF(DA_model):
 
         # surface area of the inside of the HTF flow
         self.length_tube = 3.66
-        self.d_tube = 0.004 - 0.0003
         self.surfaceA_HTF = self.length_tube * 2*pi * 0.004 # m * 2pi * r
         # mass of water in the pipe
         self.m_water = self.length_tube * (self.d_tube**2*pi) * 997.0  # m * m2 * kg/m3 = kg
@@ -77,7 +84,7 @@ class MOF(DA_model):
         # simulation time (duration)
         self.simulation_time = 120 # sec
         # time diff
-        self.dt = 0.01 # sec, 1/dt should be integral
+        self.dt = 0.1 # sec, 1/dt should be integral
 
 
         # set initial condition
@@ -103,7 +110,7 @@ class MOF(DA_model):
         # initial temperature of HTF
         self.T_HTF = self.T_HTF_in
         # intial MOF temperature 
-        self.mof_T = 25 + 273.15 # K
+        self.mof_T = [25 + 273.15]*(self.n_discrete+2) # K
         # experiment setting
         self.T_in = 25 + 273.15 # K
         # temperature of the gas before compression
@@ -121,14 +128,14 @@ class MOF(DA_model):
         self.dx = self.length_tube / self.n_discrete
 
         # initial loading get equilibrium
-        self.loading = self.eq_loading(self.gas_P_init, self.mof_T)
+        self.loading = self.eq_loading(self.gas_P_init, self.mof_T[1:-1])
 
         # heat transfer coefficient of water
         self.h_water = self.HTrans_water()
         # calcualte mas of the gas from the temeprature and pressure
         self.m_gas = self.calc_mass_gas()
         # heat capacity of the sorbent
-        self.cp_sor = self.calc_heat_Cap_sor()
+        self.cp_sor = self.calc_heat_Cap_sor(self.mof_T[1:-1])
 
         #　クーラン数0.8の設定、最大時間刻み
         cfl = 0.8
@@ -159,9 +166,9 @@ class MOF(DA_model):
         # inlet temperature of HTF, water, is same as initial temperature of the system
         self.T_HTF_in = self.res_exp.T_inlet_HTF + 273.15   #self.gas_T
         # intial MOF temperature 
-        self.mof_T = self.res_exp.T_init_mof + 273.15 # K
+        self.mof_T = [self.res_exp.T_init_mof + 273.15]*(self.n_discrete+2) # K
         # experiment setting
-        self.T_in = self.mof_T #38.21555555555556 + 273.15 # K
+        self.T_in = self.mof_T[0] #38.21555555555556 + 273.15 # K
         # output flow of CO2 into the tank
         self.m_out = self.res_exp.CO2_flow /60/60 / self.molar_mass # mol/sec = kg/h/3600 / (kg/mol)
         
@@ -175,9 +182,9 @@ class MOF(DA_model):
 
 
     " linear driving force model"
-    def ads_speed_LDF(self):
+    def ads_speed_LDF(self, T):
         # equilibrium amount
-        Qe = self.eq_loading(self.gas_P, self.mof_T)
+        Qe = self.eq_loading(self.gas_P, T)
         dQtdt = self.K1_LDF * (Qe - self.loading)
         return dQtdt # mol/kg/sec
 
@@ -202,16 +209,15 @@ class MOF(DA_model):
 
 
     # calculate the heat capacity of sorbent as a sum of MOF and adsorbate
-    def calc_heat_Cap_sor(self):
-        cp_ads = self.specific_heat_Cap(self.gas_P, self.mof_T, self.loading) # J/mol/K
-        cp_sor = self.cp_mof * self.MOF_mass + self.loading * self.MOF_mass * cp_ads 
+    def calc_heat_Cap_sor(self, T):
+        cp_ads = self.specific_heat_Cap(self.gas_P, T, self.loading, self.gas_T) # J/mol/K
+        cp_sor = self.cp_mof * self.MOF_mass + self.loading * self.MOF_mass * cp_ads
         return cp_sor + self.cp_HX # J/K
 
 
-
     # calculate the heat from adsorption amount
-    def dHadsdm(self):
-        dH = self.current_h_ads(self.loading, self.mof_T)
+    def dHadsdm(self,dm):
+        dH = self.current_h_ads(self.loading, self.mof_T[1:-1], dm)
         return dH * 1000 # J/mol
 
 

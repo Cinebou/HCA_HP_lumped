@@ -1,30 +1,34 @@
-
+import multiprocessing
 from scipy.optimize import least_squares
 import matplotlib.pyplot as plt
 from Eq_balance import balance
 import numpy as np
+import time
 plt.rcParams["font.size"] = 20
 plt.rcParams["font.family"] = "Times New Roman"
 plt.rcParams["figure.dpi"] = 320
 
 def main():
+    start_time = time.time()
     file_list =[
         './exp_data/res/2022-12-26/GL840_01_No3_2022-12-26_15-44-03.csv'
-    ]*1
+    ]*4
 
     #start_list = [17100,18000,18950,19600,20300,21300,22300,23100]
-    start_list = [18000,18950,19600]
-    start_list = [18970]
-    params = np.array([33,  0.15, 0.3])
+    start_list = [18000,18950,19600,20300]
+    params = [62.69737115,  0.07982275,  0.41252353]
+
+    params = np.array([10,   0.07855777,  0.38171265])
     params = fitting_param(params, file_list,start_list)
     compare_all(params, file_list,start_list)
+    print(' 計算時間　',(time.time() - start_time)/3600,' 時間')
 
 
 # curve fitting
 def fitting_param(corr0, file_, time_):
     bound = ([5, 0.003, 0.1],[100, 0.3,3])
     xscales = [5,0.01, 0.02]
-    res_perf = least_squares(lsq_fit,corr0, bounds=bound, verbose = 1,method='trf',x_scale=xscales,args=(file_,time_))
+    res_perf = least_squares(lsq_fit_multi,corr0, bounds=bound, verbose = 1,method='trf',x_scale=xscales,args=(file_,time_))
     fitted_params = res_perf.x
     print(fitted_params)
     return fitted_params
@@ -49,8 +53,31 @@ def lsq_fit(corr,res_list, time_list):
     return diff_all
 
 
+# run lsq for many cases with multi process calculation
+def lsq_fit_multi(corr,res_list, time_list):
+    proc = []
+    proc_answer = []
+    # prepare the multi process
+    for i in range(len(res_list)):
+        get_rev,send_rev  = multiprocessing.Pipe(False)
+        t = multiprocessing.Process(target=diff_sim_exp,args=(corr, res_list[i],time_list[i],send_rev))
+        proc_answer.append(get_rev)
+        t.start()
+        proc.append(t)
+    
+    #　計算実行
+    for i in range(len(proc)):
+        proc[i].join()
+    
+    #　結果の取得
+    diff_all = []
+    for i in range(len(proc)):
+        diff_all.extend(proc_answer[i].recv())
+    return diff_all
+
+
 # calculate the difference between experiment and simulation with given params
-def diff_sim_exp(corr,res_exp,start_sec):
+def diff_sim_exp(corr,res_exp,start_sec,send_rev):
     mof_type = 'Uio-66'
     system = balance(mof_type,res_exp,start_sec)
 
@@ -80,6 +107,7 @@ def diff_sim_exp(corr,res_exp,start_sec):
     # return the difference 
     #diff_sim = np.concatenate((dT_water, dT_sor), axis = 0)
     diff_sim = dT_water
+    send_rev.send(diff_sim)
     return diff_sim
 
 
@@ -98,20 +126,21 @@ def compare_all(params, res_list,time_list):
         tot_Q_w = compare_temp(params, res_list[i],time_list[i],i+1)
         print('num : ',i+1,'  ', tot_Q_w, '  J ')
 
+
 # compare the temperatures from simulation adn experiment
 def compare_temp(params, file,start,num):
     mof_type = 'Uio-66'
 
     System = balance(mof_type,file,start)
     param_set(System, params)
-    scp, tot_Q, tot_H_ads = System.solver()
+    tot_Q = System.solver()
 
     fig = plt.figure(figsize=(8,5))
     ax_T = fig.add_subplot(1,1,1)
 
     # simulation plot
-    sim_legends = ['sor(sim)', 'water(sim)']
-    sim_temp_data = [System.mof_T_list-273.15, System.T_HTF_list-273.15]
+    sim_legends = ['water(sim)']
+    sim_temp_data = [System.T_HTF_list-273.15]
     for i in range(len(sim_temp_data)):
         ax_T.plot(System.t, sim_temp_data[i], label = sim_legends[i],linewidth = 2)
 
@@ -120,9 +149,9 @@ def compare_temp(params, file,start,num):
     exp_temp_sor = System.res_exp.d_loc('sorbent')
     #exp_temp_gas = System.res_exp.d_loc("CO2 outlet")
     exp_temp_water = System.res_exp.d_loc("water outlet")
-    exp_legends = ['sor(exp)', 'water(exp)']
-    exp_temp_data = [exp_temp_sor, exp_temp_water]
-    markers = ['o', 's']
+    exp_legends = ['water(exp)']
+    exp_temp_data = [exp_temp_water]
+    markers = ['s']
     for i in range(len(exp_temp_data)):
         ax_T.scatter(System.res_exp.time_line, exp_temp_data[i], label = exp_legends[i], marker=markers[i], s=15, edgecolors='k')
     ax_T.set_xlabel(' t sec')

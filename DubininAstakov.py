@@ -12,7 +12,7 @@ def main():
     #mof.v_ads_plot()
     #mof.isotherm_plot()
     #mof.Qst_plot()
-    print(mof.current_h_ads(15,298.15))
+    print(mof.eq_loading(1e6,[298.15, 303.15, 323.15]))
     
 
 
@@ -69,12 +69,15 @@ class DA_model():
 
 
     # isotherm DA model
-    def eq_loading(self, p, T):
-        sat_P = self.sat_pressure(T)
-        theta = exp(-((self.R * T) / self.E * log(sat_P/p))**self.n)
-        _, v_ads = self.vol_gas_adsobate(p, T)
-        w = self.co/v_ads * theta * 1000/44 # mol / kg_MOF
-        return w
+    def eq_loading(self, p, T_list):
+        w_list = []
+        for T in T_list:
+            sat_P = self.sat_pressure(T)
+            theta = exp(-((self.R * T) / self.E * log(sat_P/p))**self.n)
+            _, v_ads = self.vol_gas_adsobate(p, T)
+            w = self.co/v_ads * theta * 1000/44 # mol / kg_MOF
+            w_list.append(w)
+        return np.array(w_list)
 
 
     # saturation pressure
@@ -123,32 +126,38 @@ class DA_model():
         return Qst * 0.001 * 44/1000 # kJ/mol
 
     
-    def current_h_ads(self, loading, T):
-        p_line = np.linspace(3e4, self.sat_pressure(T)*0.98,15)
-        m_line = np.array([self.eq_loading(p,T) for p in p_line])
-        qst_line = np.array([self.isosteric_heat(p,T) for p in p_line])
-
-        # index of correspoding heat of adsorption
-        index = self.idx_of_the_nearest(m_line, loading)
-        return qst_line[index]
-
+    # 各箇所での発熱量
+    def current_h_ads(self, loading, T_list, dm_list):
+        h_ads_list = []
+        for i in range(len(loading)):
+            # 飽和蒸気圧までの圧力線
+            p_line = np.linspace(3e4, self.sat_pressure(T_list[i])*0.98,15)
+            # 飽和までの圧力 vs 吸着量
+            m_line = np.array([self.eq_loading(p,[T_list[i]]) for p in p_line])
+            # 圧力 vs 吸着熱
+            qst_line = np.array([self.isosteric_heat(p,T_list[i]) for p in p_line])
+            #  指定の吸着量に対応する
+            # index of correspoding heat of adsorption
+            index = self.idx_of_the_nearest(m_line, loading[i])
+            h_ads_list.append(qst_line[index] * dm_list[i])
+        return np.array(h_ads_list)
 
     
     #　吸着相の比熱、液体比熱近似すると臨界点で発散するよ
     # Kazi Afzalur Rahman et al. / Procedia Engineering 56 ( 2013 ) 118 – 125
-    def specific_heat_Cap(self,p,T, loading):
-        loading = loading * 44/1000
-        # 被吸着率
-        _, v_ads = self.vol_gas_adsobate(p, T)
-        theta = loading * v_ads / self.co
-        #ガス相比熱
-        cp_gas = self.co2_prop.calc_fluidProp_pT(p,T).cp * 44/1000# J/mol/K
-        term2 = (self.alpha**2*(1-self.n)/self.n**2*self.E*T) * (log(1/theta))**(1/self.n-2) # J/mol/K
-        #気液変化の凝縮熱の項は圧力一定なのでなし
-        #term3 = -self.TdlnPs_aT(T) * self.R # J/mol/K
-        cp_ads = cp_gas + term2 
-        #print(cp_ads, '\t', term3)
-        return cp_ads # J/mol/K
+    def specific_heat_Cap(self,p,T_list, loading,T_gas):
+        loading = np.array(loading) * 44/1000
+        cp_gas = self.co2_prop.calc_fluidProp_pT(p,T_gas).cp * 44/1000# J/mol/K
+        
+        cp_ads_list = []
+        for i in range(len(loading)):
+            # 被吸着率
+            _, v_ads = self.vol_gas_adsobate(p, T_list[i])
+            theta = loading[i] * v_ads / self.co
+            #ガス相比熱
+            term2 = (self.alpha**2*(1-self.n)/self.n**2*self.E*T_list[i]) * (log(1/theta))**(1/self.n-2) # J/mol/K
+            cp_ads_list.append(cp_gas + term2) 
+        return np.array(cp_ads_list) # J/mol/K
 
 
     # plot accum heat

@@ -1,6 +1,7 @@
 from scipy.integrate import ode,cumtrapz, solve_ivp
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from HC_AHP_System import MOF
 import log_output 
 from os import mkdir, path
@@ -15,7 +16,7 @@ if not path.exists('./Fig'):
 def main():
     #mof_type = 'MIL-101'
     mof_type = 'Uio-66'
-    res_file = './exp_data/res/2022-12-26/GL840_01_No3_2022-12-26_15-44-03.csv';start_sec=18000
+    res_file = './exp_data/res/2022-12-26/GL840_01_No3_2022-12-26_15-44-03.csv';start_sec=19600
     
     System = balance(mof_type,res_file,start_sec)
     #System = balance(mof_type,'',start_sec)
@@ -33,17 +34,13 @@ class balance(MOF):
     # update system with each iteration
     def update_variables(self,t):
         # increase of the loading
-        self.dm_loading = self.ads_speed_LDF()
+        self.dm_loading = self.ads_speed_LDF(self.mof_T[1:-1])
         # increase of the adsorption amount
-        self.m_ads = self.dm_loading * self.MOF_mass
+        self.m_ads = np.mean(self.dm_loading) * self.MOF_mass
         # the mass of CO2 in the tank
         self.m_gas = self.calc_mass_gas()
-        # the mass of the outflow gas, record m_out for the calucaltion in energy balance
-        #self.m_in = self.m_out + self.m_ads
         # heat capacity of the sorbent
-        self.cp_sor = self.calc_heat_Cap_sor()
-        # compressor work
-        self.compressor_work = 0 
+        self.cp_sor = self.calc_heat_Cap_sor(self.mof_T)
         #get input temperature of CO2 from experiment
         self.T_in = float(self.exp_T_in.iloc[[int(t)]]) + 273.15; assert 270 <= self.T_in <= 400
         
@@ -73,7 +70,7 @@ class balance(MOF):
         en_flow = self.m_out * (h_in_CO2 - h_out_CO2)
 
         # heat transfer between sorbent and gas
-        Htrans = self.h_CO2 * self.surfaceA * (self.mof_T - self.gas_T)
+        Htrans = self.h_CO2 * self.surfaceA * (np.mean(self.mof_T[1:-1]) - self.gas_T)
 
         # expansion heat due to the adsorption
         mRT = self.m_ads * (self.m_ads * h_in_CO2 - self.gas_P * PropCO2.vol * self.molar_mass)
@@ -93,25 +90,28 @@ class balance(MOF):
     # energy balance of the adsorbent
     def en_balance_sor(self,t):
         # heat transfer between sorbent and gas
-        Htrans = self.h_CO2 * self.surfaceA * (self.gas_T - self.mof_T)
+        Htrans = self.h_CO2 * self.surfaceA * (self.gas_T - self.mof_T[1:-1])/self.length_tube  # W/m
         # adsorption heat
-        Hads = self.m_ads * self.dHadsdm()
+        Hads = self.MOF_mass * self.dHadsdm(self.dm_loading)/self.length_tube  # W/m
         # heat passed to the HTF
-        pass_HTF = self.h_water * self.surfaceA_HTF * (np.mean(self.T_HTF[1:-1]) - self.mof_T)
+        pass_HTF = self.h_water * self.surfaceA_HTF * (self.T_HTF[1:-1] - self.mof_T[1:-1])/(self.length_tube) # W/m
         
+        # heat conduction params
+        dT2dx2 = self.a_conductance * np.diff(self.mof_T,2) / (self.dx**2)
+
         # temperature development of the sorbent
-        dTsordt = (Htrans + Hads + pass_HTF) / self.cp_sor
+        dTsordt = (Htrans + Hads + pass_HTF + dT2dx2) / (self.cp_sor/self.length_tube)
 
         # Logger
         #log_output.log_h_sor_msg(dTsordt*self.cp_sor, np.mean(self.T_HTF), self.mof_T, pass_HTF,t)
         #log_output.log_any_msg('{},{}'.format(t,np.mean(self.T_HTF[1:-1])- self.mof_T))
-        return dTsordt
+        return np.hstack([0.0, dTsordt, 0.0])
 
 
     # energy balance of the water
     def en_balance_water(self,t):
         # heat transfer between sorbent and gas
-        pass_HTF = self.h_water * self.surfaceA_HTF * (self.mof_T - self.T_HTF[1:-1])/(self.length_tube) # W/m
+        pass_HTF = self.h_water * self.surfaceA_HTF * (self.mof_T[1:-1] - self.T_HTF[1:-1])/(self.length_tube) # W/m
         pass_HTF = np.hstack([pass_HTF,0.0])
         
         # temperature development of the sorbent
@@ -125,10 +125,10 @@ class balance(MOF):
     # summarize the time differential equations into ODE system
     def equations(self, t,var):
         # variables
-        self.loading   = var[0]
-        self.mof_T     = var[1]
-        self.gas_T     = var[2]
-        self.T_HTF     = var[3:3+self.n_discrete+2]
+        self.loading   = var[0  :   self.n_discrete]
+        self.mof_T     = var[self.n_discrete    :   2*self.n_discrete+2]
+        self.gas_T     = var[2*self.n_discrete+2]
+        self.T_HTF     = var[2*self.n_discrete+3    :   3*self.n_discrete+5]
         #log_output.log_any_msg(('{},'*(len(var)+1)).format(t,*var))
 
         # update the system
@@ -146,18 +146,22 @@ class balance(MOF):
     def solver(self):
         self.t = np.linspace(0,self.simulation_time,int(self.simulation_time/self.dt))
         # initial value in the ODE
-        var0 = [self.loading_init, self.mof_T_init, self.gas_T_init] + self.T_HTF_init
+        var0 = np.concatenate([self.loading_init, self.mof_T_init,[self.gas_T_init], self.T_HTF_init])
         # solver
         sol = solve_ivp(self.equations, [0, self.simulation_time], var0 ,t_eval=self.t,method='LSODA',rtol=1e-3, atol=1e-06,max_step=self.max_time_step)
-
-        # time 
+        
+        # data saving to csv file
+        sol_csv = pd.concat([pd.DataFrame(sol.t), pd.DataFrame(sol.y).T],axis=1)
+        sol_csv.to_csv('./Log/solver_ans_'+str(self.start_time)+'.csv')
+        
+        # time
         self.t = sol.t
         
         # answer
-        self.loading_list = sol.y[0,:]
-        self.mof_T_list   = sol.y[1,:]
-        self.gas_T_list   = sol.y[2,:]
-        self.T_HTF_list   = sol.y[3+self.n_discrete,:]
+        self.loading_list = sol.y[0:self.n_discrete,:].mean(axis=0)
+        self.mof_T_list   = sol.y[2*self.n_discrete,:]
+        self.gas_T_list   = sol.y[2*self.n_discrete+2,:]
+        self.T_HTF_list   = sol.y[3*self.n_discrete+3,:]
 
         # calc variables
         #T_in_list  = self.find_output_variables()
@@ -202,6 +206,7 @@ class balance(MOF):
         plt.savefig('./Fig/'+ self.name + '/results')
         return 0
 
+    """
         # re-calclate non-ODEsystem variables from the results
     def find_output_variables(self):
         W_comp = []
@@ -213,8 +218,7 @@ class balance(MOF):
             self.T_HTF   = self.T_HTF_list[i]
             self.update_variables(self.t[i])
             T_in_list.append(self.T_in)
-            W_comp.append(self.compressor_work)
-        return np.array(T_in_list)
+        return np.array(T_in_list)"""
 
 if __name__ == '__main__':
     main()
